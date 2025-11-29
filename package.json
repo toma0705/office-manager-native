@@ -13,7 +13,8 @@
     "expo": "~54.0.25",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",
-    "react-native": "0.81.5"
+    "react-native": "0.81.5",
+    "@office-manager/api-client": "git+ssh://git@github.com:toma0705/office-manager-api-client.git#v0.1.0"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
