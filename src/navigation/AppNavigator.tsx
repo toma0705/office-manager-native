@@ -61,10 +61,10 @@ export const AppNavigator: React.FC = () => {
           ) : (
             <>
               <Stack.Screen name="Home" component={HomeScreen} />
-              <Stack.Screen name="Users" component={UsersScreen} />
               <Stack.Screen name="Placeholder" component={PlaceholderScreen} />
             </>
           )}
+          <Stack.Screen name="Users" component={UsersScreen} />
         </Stack.Navigator>
       )}
     </NavigationContainer>
