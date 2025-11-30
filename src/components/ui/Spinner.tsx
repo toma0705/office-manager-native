@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { ActivityIndicator, type ActivityIndicatorProps } from "react-native";
+import React from "react";
+import { View, type ActivityIndicatorProps } from "react-native";
 import { type NamedSize, namedSizeMap } from "@/utils/size";
 
 type SpinnerSize = number | NamedSize;
@@ -8,24 +8,16 @@ type SpinnerProps = Omit<ActivityIndicatorProps, "size"> & {
   size?: SpinnerSize;
 };
 
-const DEFAULT_SIZE: SpinnerSize = "medium";
+const DEFAULT_SIZE: SpinnerSize = namedSizeMap.medium;
 
-export const Spinner: React.FC<SpinnerProps> = ({
-  size = DEFAULT_SIZE,
-  ...rest
-}) => {
+export const Spinner: React.FC<SpinnerProps> = ({ size = DEFAULT_SIZE }) => {
   const fallback =
-    typeof DEFAULT_SIZE === "number"
-      ? DEFAULT_SIZE
-      : namedSizeMap[DEFAULT_SIZE];
+    typeof DEFAULT_SIZE === "number" ? DEFAULT_SIZE : namedSizeMap.medium;
   const normalizedSize = normalizeSize(size, fallback);
 
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[Spinner] size prop", size, "normalized", normalizedSize);
-  }, [size, normalizedSize]);
+  const dimension = normalizeSize(normalizedSize, fallback);
 
-  return <ActivityIndicator {...rest} size={normalizedSize} />;
+  return <View style={{ width: dimension, height: dimension }} />;
 };
 
 export const normalizeSize = (

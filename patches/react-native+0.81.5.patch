@@ -1,0 +1,43 @@
+diff --git a/node_modules/react-native/Libraries/Components/ActivityIndicator/ActivityIndicator.js b/node_modules/react-native/Libraries/Components/ActivityIndicator/ActivityIndicator.js
+index 0e9fd47..37cb141 100644
+--- a/node_modules/react-native/Libraries/Components/ActivityIndicator/ActivityIndicator.js
++++ b/node_modules/react-native/Libraries/Components/ActivityIndicator/ActivityIndicator.js
+@@ -78,21 +78,35 @@ const ActivityIndicator: component(
+ }) => {
+   let sizeStyle;
+   let sizeProp;
++  const isFabricEnabled =
++    global?.nativeFabricUIManager != null ||
++    global?.RNRendererAppearance?.defaultFabric != null;
+ 
+   switch (size) {
+     case 'small':
+       sizeStyle = styles.sizeSmall;
+-      sizeProp = 'small';
++      sizeProp = isFabricEnabled ? styles.sizeSmall.width : 'small';
+       break;
+     case 'large':
+       sizeStyle = styles.sizeLarge;
+-      sizeProp = 'large';
++      sizeProp = isFabricEnabled ? styles.sizeLarge.width : 'large';
+       break;
+     default:
+-      sizeStyle = {height: size, width: size};
++      if (typeof size === 'string') {
++        const fallback = size === 'small' ? styles.sizeSmall.width : styles.sizeLarge.width;
++        sizeStyle = {height: fallback, width: fallback};
++        sizeProp = fallback;
++      } else {
++        sizeStyle = {height: size, width: size};
++        sizeProp = size;
++      }
+       break;
+   }
+ 
++  if (sizeProp == null) {
++    sizeProp = isFabricEnabled ? styles.sizeLarge.width : 'large';
++  }
++
+   const nativeProps = {
+     animating,
+     color,

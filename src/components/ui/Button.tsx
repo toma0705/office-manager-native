@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { colors } from "@/theme/colors";
 import { Spinner } from "./Spinner";
+import { namedSizeMap } from "@/utils/size";
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
 
@@ -90,7 +91,7 @@ export const Button: React.FC<ButtonProps> = ({
       ]}
     >
       {loading ? (
-        <Spinner size="small" color={spinnerColor} />
+        <Spinner size={namedSizeMap.small} color={spinnerColor} />
       ) : (
         <Text style={[styles.label, theme.text]}>{title}</Text>
       )}
