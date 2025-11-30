@@ -7,6 +7,7 @@ type Option = {
   value: string;
   label: string;
   description?: string;
+  span?: "full" | "half";
 };
 
 type OptionCardGroupProps = {
@@ -43,12 +44,15 @@ export const OptionCardGroup: React.FC<OptionCardGroupProps> = ({
       <View style={styles.grid}>
         {options.map((option) => {
           const isSelected = option.value === selectedValue;
+          const spanStyle =
+            option.span === "full" ? styles.cardFull : styles.cardHalf;
           return (
             <Pressable
               key={option.value}
               onPress={() => handlePress(option.value)}
               style={({ pressed }) => [
                 styles.card,
+                spanStyle,
                 isSelected && styles.cardSelected,
                 pressed && styles.cardPressed,
               ]}
@@ -97,8 +101,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   card: {
-    flexBasis: "48%",
-    flexGrow: 1,
     backgroundColor: colors.white,
     borderRadius: 16,
     borderWidth: 1,
@@ -111,6 +113,20 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
     elevation: 1,
+  },
+  cardHalf: {
+    flexBasis: "48%",
+    maxWidth: "48%",
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  cardFull: {
+    flexBasis: "100%",
+    maxWidth: "100%",
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: "stretch",
+    width: "100%",
   },
   cardSelected: {
     borderColor: colors.primary,

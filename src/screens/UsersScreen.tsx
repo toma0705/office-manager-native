@@ -9,6 +9,7 @@ import { OptionCardGroup } from "@/components/ui/OptionCardGroup";
 import { createOfficesApi, createUsersApi } from "@/api/client";
 import { colors } from "@/theme/colors";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
+import { sortOfficesByPriority } from "@/utils/offices";
 
 export const UsersScreen: React.FC = () => {
   const navigation =
@@ -42,6 +43,18 @@ export const UsersScreen: React.FC = () => {
     return users.filter((user) => user.office?.code === selectedOffice);
   }, [selectedOffice, users]);
 
+  const officeFilterOptions = useMemo(() => {
+    const sortedOffices = sortOfficesByPriority(offices);
+
+    return [
+      { value: "ALL", label: "全ユーザー", span: "full" as const },
+      ...sortedOffices.map((office) => ({
+        value: office.code,
+        label: office.name ?? office.code,
+      })),
+    ];
+  }, [offices]);
+
   return (
     <View style={styles.root}>
       <View style={styles.header}>
@@ -58,14 +71,7 @@ export const UsersScreen: React.FC = () => {
         <OptionCardGroup
           title="オフィスで絞り込み"
           helperText="表示したいオフィスをタップしてください"
-          options={[
-            { value: "ALL", label: "すべて", description: "全ユーザー" },
-            ...offices.map((office) => ({
-              value: office.code,
-              label: office.name,
-              description: office.code,
-            })),
-          ]}
+          options={officeFilterOptions}
           selectedValue={selectedOffice}
           onSelect={setSelectedOffice}
         />
