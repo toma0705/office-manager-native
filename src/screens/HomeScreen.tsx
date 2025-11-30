@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -197,12 +196,7 @@ export const HomeScreen: React.FC = () => {
 
   return (
     <View style={styles.root}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={fetchData} />
-        }
-      >
+      <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity
           style={styles.avatarButton}
           onPress={() => setSidebarOpen(true)}
@@ -220,6 +214,15 @@ export const HomeScreen: React.FC = () => {
           onEnter={handleEnter}
           onExit={handleExit}
           disabled={pendingAction !== null}
+        />
+
+        <Button
+          title={refreshing ? "読込中..." : "最新情報を更新"}
+          variant="secondary"
+          onPress={() => void fetchData()}
+          disabled={refreshing || pendingAction !== null}
+          loading={refreshing}
+          fullWidth
         />
 
         <Button
