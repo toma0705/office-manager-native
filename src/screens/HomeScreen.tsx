@@ -268,6 +268,7 @@ const styles = StyleSheet.create({
   },
   avatarButton: {
     alignSelf: "flex-end",
+    marginTop: 16,
   },
   officeBadge: {
     alignSelf: "flex-start",

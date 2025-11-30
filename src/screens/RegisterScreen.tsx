@@ -146,86 +146,96 @@ export const RegisterScreen: React.FC = () => {
   }, [email, icon, loading, name, navigation, password, selectedOffice]);
 
   return (
-    <PageContainer>
-      <Text style={styles.title}>新規ユーザー登録</Text>
-      <View style={styles.card}>
-        <OptionCardGroup
-          title="所属オフィス"
-          helperText="所属するオフィスを選択してください"
-          options={sortedOffices.map((office) => ({
-            value: office.code,
-            label: office.name ?? office.code,
-          }))}
-          selectedValue={selectedOffice}
-          onSelect={setSelectedOffice}
-        />
-
-        <Input
-          label="名前"
-          value={name}
-          onChangeText={setName}
-          autoCapitalize="none"
-        />
-        <Input
-          label="メールアドレス"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <Input
-          label="パスワード"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-
-        <View style={styles.iconUploadArea}>
-          <Button
-            title="アイコン画像を選択"
-            variant="secondary"
-            onPress={handlePickIcon}
+    <PageContainer contentStyle={styles.pageContent}>
+      <View style={styles.contentWrapper}>
+        <Text style={styles.title}>新規ユーザー登録</Text>
+        <View style={styles.card}>
+          <OptionCardGroup
+            title="所属オフィス"
+            helperText="所属するオフィスを選択してください"
+            options={sortedOffices.map((office) => ({
+              value: office.code,
+              label: office.name ?? office.code,
+            }))}
+            selectedValue={selectedOffice}
+            onSelect={setSelectedOffice}
           />
-          {iconPreviewUri ? (
-            <Avatar
-              uri={iconPreviewUri}
-              alt={name}
-              size={80}
-              containerStyle={styles.iconPreview}
+
+          <Input
+            label="名前"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="none"
+          />
+          <Input
+            label="メールアドレス"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Input
+            label="パスワード"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+
+          <View style={styles.iconUploadArea}>
+            <Button
+              title="アイコン画像を選択"
+              variant="secondary"
+              onPress={handlePickIcon}
             />
-          ) : (
-            <Text style={styles.iconHint}>選択済みの画像はありません</Text>
-          )}
-        </View>
-
-        {errorMessage ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorMessage}>{errorMessage}</Text>
-            {errorDetail ? (
-              <Text style={styles.errorDetail}>{errorDetail}</Text>
-            ) : null}
+            {iconPreviewUri ? (
+              <Avatar
+                uri={iconPreviewUri}
+                alt={name}
+                size={80}
+                containerStyle={styles.iconPreview}
+              />
+            ) : (
+              <Text style={styles.iconHint}>選択済みの画像はありません</Text>
+            )}
           </View>
-        ) : null}
 
-        <Button
-          title="追加"
-          onPress={handleRegister}
-          loading={loading}
-          fullWidth
-        />
-        <Button
-          title="ログイン画面に戻る"
-          variant="secondary"
-          onPress={() => navigation.navigate("Login")}
-          fullWidth
-        />
+          {errorMessage ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorMessage}>{errorMessage}</Text>
+              {errorDetail ? (
+                <Text style={styles.errorDetail}>{errorDetail}</Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          <Button
+            title="追加"
+            onPress={handleRegister}
+            loading={loading}
+            fullWidth
+          />
+          <Button
+            title="ログイン画面に戻る"
+            variant="secondary"
+            onPress={() => navigation.navigate("Login")}
+            fullWidth
+          />
+        </View>
       </View>
     </PageContainer>
   );
 };
 
 const styles = StyleSheet.create({
+  pageContent: {
+    flexGrow: 1,
+  },
+  contentWrapper: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 16,
+  },
   title: {
     fontSize: 24,
     fontWeight: "700",
