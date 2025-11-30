@@ -3,16 +3,17 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
-import { Picker } from "@react-native-picker/picker";
 import type { Office } from "@office-manager/api-client";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
+import { OptionCardGroup } from "@/components/ui/OptionCardGroup";
 import { createOfficesApi } from "@/api/client";
 import { withApiPath } from "@/constants/config";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import { colors } from "@/theme/colors";
+import { sortOfficesByPriority } from "@/utils/offices";
 
 export const RegisterScreen: React.FC = () => {
   const navigation =
@@ -42,6 +43,11 @@ export const RegisterScreen: React.FC = () => {
   }, []);
 
   const iconPreviewUri = useMemo(() => icon?.uri, [icon]);
+
+  const sortedOffices = useMemo(
+    () => sortOfficesByPriority(offices),
+    [offices]
+  );
 
   const ensurePermissions = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -140,95 +146,96 @@ export const RegisterScreen: React.FC = () => {
   }, [email, icon, loading, name, navigation, password, selectedOffice]);
 
   return (
-    <PageContainer>
-      <Text style={styles.title}>新規ユーザー登録</Text>
-      <View style={styles.card}>
-        <View style={styles.pickerContainer}>
-          <Text style={styles.label}>所属オフィス</Text>
-          <View style={styles.pickerWrapper}>
-            <Picker
-              selectedValue={selectedOffice}
-              onValueChange={(value: string) => setSelectedOffice(value)}
-              mode="dropdown"
-            >
-              <Picker.Item label="オフィスを選択してください" value="" />
-              {offices.map((office) => (
-                <Picker.Item
-                  key={office.id}
-                  label={office.name}
-                  value={office.code}
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
-
-        <Input
-          label="名前"
-          value={name}
-          onChangeText={setName}
-          autoCapitalize="none"
-        />
-        <Input
-          label="メールアドレス"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <Input
-          label="パスワード"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-
-        <View style={styles.iconUploadArea}>
-          <Button
-            title="アイコン画像を選択"
-            variant="secondary"
-            onPress={handlePickIcon}
+    <PageContainer contentStyle={styles.pageContent}>
+      <View style={styles.contentWrapper}>
+        <Text style={styles.title}>新規ユーザー登録</Text>
+        <View style={styles.card}>
+          <OptionCardGroup
+            title="所属オフィス"
+            helperText="所属するオフィスを選択してください"
+            options={sortedOffices.map((office) => ({
+              value: office.code,
+              label: office.name ?? office.code,
+            }))}
+            selectedValue={selectedOffice}
+            onSelect={setSelectedOffice}
           />
-          {iconPreviewUri ? (
-            <Avatar
-              uri={iconPreviewUri}
-              alt={name}
-              size={80}
-              containerStyle={styles.iconPreview}
+
+          <Input
+            label="名前"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="none"
+          />
+          <Input
+            label="メールアドレス"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Input
+            label="パスワード"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+
+          <View style={styles.iconUploadArea}>
+            <Button
+              title="アイコン画像を選択"
+              variant="secondary"
+              onPress={handlePickIcon}
             />
-          ) : (
-            <Text style={styles.iconHint}>選択済みの画像はありません</Text>
-          )}
-        </View>
-
-        {errorMessage ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorMessage}>{errorMessage}</Text>
-            {errorDetail ? (
-              <Text style={styles.errorDetail}>{errorDetail}</Text>
-            ) : null}
+            {iconPreviewUri ? (
+              <Avatar
+                uri={iconPreviewUri}
+                alt={name}
+                size={80}
+                containerStyle={styles.iconPreview}
+              />
+            ) : (
+              <Text style={styles.iconHint}>選択済みの画像はありません</Text>
+            )}
           </View>
-        ) : null}
 
-        <Button
-          title="追加"
-          onPress={handleRegister}
-          loading={loading}
-          fullWidth
-        />
-        <Button
-          title="ログイン画面に戻る"
-          variant="secondary"
-          onPress={() => navigation.navigate("Login")}
-          fullWidth
-        />
+          {errorMessage ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorMessage}>{errorMessage}</Text>
+              {errorDetail ? (
+                <Text style={styles.errorDetail}>{errorDetail}</Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          <Button
+            title="追加"
+            onPress={handleRegister}
+            loading={loading}
+            fullWidth
+          />
+          <Button
+            title="ログイン画面に戻る"
+            variant="secondary"
+            onPress={() => navigation.navigate("Login")}
+            fullWidth
+          />
+        </View>
       </View>
     </PageContainer>
   );
 };
 
 const styles = StyleSheet.create({
+  pageContent: {
+    flexGrow: 1,
+  },
+  contentWrapper: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 16,
+  },
   title: {
     fontSize: 24,
     fontWeight: "700",
@@ -246,20 +253,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 12,
     elevation: 2,
-  },
-  pickerContainer: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    overflow: "hidden",
   },
   iconUploadArea: {
     alignItems: "center",

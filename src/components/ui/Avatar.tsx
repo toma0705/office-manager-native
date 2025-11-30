@@ -58,12 +58,14 @@ export const Avatar: React.FC<Props> = ({
 const styles = StyleSheet.create({
   image: {
     backgroundColor: "#e5e7eb",
+    borderWidth: 2,
+    borderColor: colors.primary,
   } as ImageStyle,
   placeholder: {
     backgroundColor: colors.secondary,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.primary,
   },
   initial: {
