@@ -3,12 +3,12 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
-import { Picker } from "@react-native-picker/picker";
 import type { Office } from "@office-manager/api-client";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
+import { OptionCardGroup } from "@/components/ui/OptionCardGroup";
 import { createOfficesApi } from "@/api/client";
 import { withApiPath } from "@/constants/config";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
@@ -143,25 +143,17 @@ export const RegisterScreen: React.FC = () => {
     <PageContainer>
       <Text style={styles.title}>新規ユーザー登録</Text>
       <View style={styles.card}>
-        <View style={styles.pickerContainer}>
-          <Text style={styles.label}>所属オフィス</Text>
-          <View style={styles.pickerWrapper}>
-            <Picker
-              selectedValue={selectedOffice}
-              onValueChange={(value: string) => setSelectedOffice(value)}
-              mode="dropdown"
-            >
-              <Picker.Item label="オフィスを選択してください" value="" />
-              {offices.map((office) => (
-                <Picker.Item
-                  key={office.id}
-                  label={office.name}
-                  value={office.code}
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
+        <OptionCardGroup
+          title="所属オフィス"
+          helperText="所属するオフィスを選択してください"
+          options={offices.map((office) => ({
+            value: office.code,
+            label: office.name,
+            description: office.code,
+          }))}
+          selectedValue={selectedOffice}
+          onSelect={setSelectedOffice}
+        />
 
         <Input
           label="名前"
@@ -246,20 +238,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 12,
     elevation: 2,
-  },
-  pickerContainer: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    overflow: "hidden",
   },
   iconUploadArea: {
     alignItems: "center",

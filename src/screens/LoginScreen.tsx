@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -44,48 +44,58 @@ export const LoginScreen: React.FC = () => {
   const goUsers = () => navigation.navigate("Users");
 
   return (
-    <PageContainer>
-      <Text style={styles.title}>Office Manager</Text>
-      <Input
-        label="メールアドレス"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        autoCorrect={false}
-        value={email}
-        onChangeText={setEmail}
-      />
-      <Input
-        label="パスワード"
-        secureTextEntry
-        autoCapitalize="none"
-        value={password}
-        onChangeText={setPassword}
-      />
-      {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
-      <Button
-        title={loading ? "ログイン中..." : "ログイン"}
-        onPress={handleLogin}
-        loading={loading}
-        fullWidth
-      />
-      <Button
-        title="新規登録"
-        variant="secondary"
-        onPress={goRegister}
-        fullWidth
-        disabled={loading}
-      />
-      <LinkButton title="ユーザーリストを見る" onPress={goUsers} center />
-      <LinkButton
-        title="パスワードをお忘れの方はこちら"
-        onPress={goReset}
-        center
-      />
+    <PageContainer contentStyle={styles.pageContent}>
+      <View style={styles.form}>
+        <Text style={styles.title}>Office Manager</Text>
+        <Input
+          label="メールアドレス"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={email}
+          onChangeText={setEmail}
+        />
+        <Input
+          label="パスワード"
+          secureTextEntry
+          autoCapitalize="none"
+          value={password}
+          onChangeText={setPassword}
+        />
+        {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+        <Button
+          title={loading ? "ログイン中..." : "ログイン"}
+          onPress={handleLogin}
+          loading={loading}
+          fullWidth
+        />
+        <Button
+          title="新規登録"
+          variant="secondary"
+          onPress={goRegister}
+          fullWidth
+          disabled={loading}
+        />
+        <LinkButton title="ユーザーリストを見る" onPress={goUsers} center />
+        <LinkButton
+          title="パスワードをお忘れの方はこちら"
+          onPress={goReset}
+          center
+        />
+      </View>
     </PageContainer>
   );
 };
 
 const styles = StyleSheet.create({
+  pageContent: {
+    flexGrow: 1,
+  },
+  form: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 16,
+  },
   title: {
     textAlign: "center",
     fontSize: 28,

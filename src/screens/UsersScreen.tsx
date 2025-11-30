@@ -3,9 +3,9 @@ import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { Office, UserListItem } from "@office-manager/api-client";
-import { Picker } from "@react-native-picker/picker";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { OptionCardGroup } from "@/components/ui/OptionCardGroup";
 import { createOfficesApi, createUsersApi } from "@/api/client";
 import { colors } from "@/theme/colors";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
@@ -55,22 +55,20 @@ export const UsersScreen: React.FC = () => {
       <Text style={styles.title}>ユーザーリスト</Text>
 
       <View style={styles.filterCard}>
-        <Text style={styles.filterLabel}>オフィスで絞り込み</Text>
-        <View style={styles.pickerWrapper}>
-          <Picker
-            selectedValue={selectedOffice}
-            onValueChange={(value: string) => setSelectedOffice(value)}
-          >
-            <Picker.Item label="すべてのオフィス" value="ALL" />
-            {offices.map((office) => (
-              <Picker.Item
-                key={office.id}
-                label={office.name}
-                value={office.code}
-              />
-            ))}
-          </Picker>
-        </View>
+        <OptionCardGroup
+          title="オフィスで絞り込み"
+          helperText="表示したいオフィスをタップしてください"
+          options={[
+            { value: "ALL", label: "すべて", description: "全ユーザー" },
+            ...offices.map((office) => ({
+              value: office.code,
+              label: office.name,
+              description: office.code,
+            })),
+          ]}
+          selectedValue={selectedOffice}
+          onSelect={setSelectedOffice}
+        />
       </View>
 
       <FlatList
@@ -122,17 +120,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 10,
     elevation: 1,
-  },
-  filterLabel: {
-    fontWeight: "600",
-    marginBottom: 8,
-    color: colors.text,
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    overflow: "hidden",
   },
   listContent: {
     gap: 12,
