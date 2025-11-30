@@ -30,16 +30,7 @@ export const Spinner: React.FC<SpinnerProps> = ({
   const fallback =
     typeof DEFAULT_SIZE === "number" ? DEFAULT_SIZE : namedSizeMap.medium;
   const normalizedSize = normalizeSize(size, fallback);
-  // Debug logging to trace size normalization
-  // eslint-disable-next-line no-console
-  console.log(
-    "[DEBUG Spinner] size prop=",
-    size,
-    "=> normalized=",
-    normalizedSize
-  );
   if (typeof normalizedSize !== "number") {
-    // eslint-disable-next-line no-console
     console.error(
       "[DEBUG Spinner] Non-numeric size detected",
       size,
