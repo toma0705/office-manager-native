@@ -185,6 +185,7 @@ export const HomeScreen: React.FC = () => {
   }, [signOut, user]);
 
   const enteredCount = useMemo(() => enteredUsers.length, [enteredUsers]);
+  const refreshDisabled = refreshing || pendingAction !== null;
 
   if (!user) {
     return (
@@ -197,15 +198,15 @@ export const HomeScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity
-          style={styles.avatarButton}
-          onPress={() => setSidebarOpen(true)}
-        >
-          <Avatar uri={user.iconFileName} alt={user.name} size={72} />
-        </TouchableOpacity>
-
-        <View style={styles.officeBadge}>
-          <Text style={styles.officeBadgeText}>{user.office.name}で表示中</Text>
+        <View style={styles.topControls}>
+          <Button
+            title="すべてのユーザーを見る"
+            variant="secondary"
+            onPress={() => navigation.navigate("Users")}
+          />
+          <TouchableOpacity onPress={() => setSidebarOpen(true)}>
+            <Avatar uri={user.iconFileName} alt={user.name} size={72} />
+          </TouchableOpacity>
         </View>
 
         <StatusTitle entered={entered} />
@@ -216,25 +217,10 @@ export const HomeScreen: React.FC = () => {
           disabled={pendingAction !== null}
         />
 
-        <Button
-          title={refreshing ? "読込中..." : "最新情報を更新"}
-          variant="secondary"
-          onPress={() => void fetchData()}
-          disabled={refreshing || pendingAction !== null}
-          loading={refreshing}
-          fullWidth
-        />
-
-        <Button
-          title="すべてのユーザーを見る"
-          variant="secondary"
-          onPress={() => navigation.navigate("Users")}
-          fullWidth
-        />
-
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            入室中のユーザー ({enteredCount})
+          <Text style={styles.sectionTitle}>{user.office.name}</Text>
+          <Text style={[styles.sectionTitle, styles.sectionSubtitle]}>
+            入室中ユーザー ({enteredCount}人)
           </Text>
         </View>
 
@@ -249,6 +235,9 @@ export const HomeScreen: React.FC = () => {
         visible={isSidebarOpen}
         user={user}
         onClose={() => setSidebarOpen(false)}
+        onRefresh={() => void fetchData()}
+        refreshDisabled={refreshDisabled}
+        refreshing={refreshing}
         onLogout={handleLogout}
         onDelete={handleDeleteAccount}
       />
@@ -266,32 +255,29 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     gap: 24,
   },
-  avatarButton: {
-    alignSelf: "flex-end",
-    marginTop: 16,
-  },
-  officeBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#e8f5e9",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderColor: "#c8e6c9",
-    borderWidth: 1,
-  },
-  officeBadgeText: {
-    color: colors.primaryDark,
-    fontWeight: "600",
-  },
-  sectionHeader: {
+  topControls: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginTop: 24,
+  },
+  sectionHeader: {
+    alignSelf: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.secondary,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: colors.text,
+    textAlign: "center",
+  },
+  sectionSubtitle: {
+    marginTop: 4,
   },
   centered: {
     flex: 1,
