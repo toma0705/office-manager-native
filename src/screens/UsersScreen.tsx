@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, Platform, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { Office, UserListItem } from "@office-manager/api-client";
@@ -10,6 +10,7 @@ import { createOfficesApi, createUsersApi } from "@/api/client";
 import { colors } from "@/theme/colors";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import { sortOfficesByPriority } from "@/utils/offices";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export const UsersScreen: React.FC = () => {
   const navigation =
@@ -56,57 +57,67 @@ export const UsersScreen: React.FC = () => {
   }, [offices]);
 
   return (
-    <View style={styles.root}>
-      <View style={styles.header}>
-        <Button
-          title="← ホームに戻る"
-          variant="secondary"
-          onPress={() => navigation.goBack()}
-          fullWidth
-        />
-      </View>
-      <Text style={styles.title}>ユーザーリスト</Text>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+      <View style={styles.root}>
+        <View style={styles.header}>
+          <Button
+            title="← ホームに戻る"
+            variant="secondary"
+            onPress={() => navigation.goBack()}
+          />
+        </View>
+        <Text style={styles.title}>ユーザーリスト</Text>
 
-      <View style={styles.filterCard}>
-        <OptionCardGroup
-          title="オフィスで絞り込み"
-          helperText="表示したいオフィスをタップしてください"
-          options={officeFilterOptions}
-          selectedValue={selectedOffice}
-          onSelect={setSelectedOffice}
-        />
-      </View>
+        <View style={styles.filterCard}>
+          <OptionCardGroup
+            title="オフィスで絞り込み"
+            helperText="表示したいオフィスをタップしてください"
+            options={officeFilterOptions}
+            selectedValue={selectedOffice}
+            onSelect={setSelectedOffice}
+          />
+        </View>
 
-      <FlatList
-        data={filteredUsers}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>条件に一致するユーザーがいません</Text>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.userCard}>
-            <Avatar uri={item.iconFileName} alt={item.name} size={48} />
-            <View style={styles.userInfo}>
-              <Text style={styles.userName}>{item.name}</Text>
-              <Text style={styles.userOffice}>
-                {item.office?.name ?? "未設定"}
-              </Text>
+        <FlatList
+          data={filteredUsers}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>
+              条件に一致するユーザーがいません
+            </Text>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.userCard}>
+              <Avatar uri={item.iconFileName} alt={item.name} size={48} />
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{item.name}</Text>
+                <Text style={styles.userOffice}>
+                  {item.office?.name ?? "未設定"}
+                </Text>
+              </View>
             </View>
-          </View>
-        )}
-      />
-    </View>
+          )}
+        />
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   root: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 24,
   },
   header: {
+    alignItems: "flex-start",
     marginBottom: 16,
   },
   title: {
