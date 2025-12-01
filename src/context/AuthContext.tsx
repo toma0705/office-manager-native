@@ -2,6 +2,8 @@ import {
   type UsersLoginPostRequest,
   type UserSafe,
 } from "@office-manager/api-client";
+import Constants from "expo-constants";
+import * as LocalAuthentication from "expo-local-authentication";
 import React, {
   createContext,
   useCallback,
@@ -11,6 +13,7 @@ import React, {
   useState,
 } from "react";
 import { createUsersApi } from "@/api/client";
+import { credentialStorage } from "@/storage/credentialStorage";
 import { tokenStorage } from "@/storage/tokenStorage";
 
 type AuthStatus = "checking" | "signedOut" | "signedIn";
@@ -20,7 +23,7 @@ type AuthContextValue = {
   user: UserSafe | null;
   token: string | null;
   signIn: (credentials: UsersLoginPostRequest) => Promise<void>;
-  signOut: () => Promise<void>;
+  signOut: (options?: { forgetCredentials?: boolean }) => Promise<void>;
   refreshUser: () => Promise<void>;
   setUserState: (user: UserSafe | null) => void;
 };
@@ -33,6 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [status, setStatus] = useState<AuthStatus>("checking");
   const [user, setUser] = useState<UserSafe | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const shouldRequireBiometric = Constants.appOwnership !== "expo";
 
   const loadSession = useCallback(async () => {
     setStatus("checking");
@@ -44,6 +48,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
     try {
+      let biometricApproved = true;
+
+      if (shouldRequireBiometric) {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        if (!hasHardware) {
+          biometricApproved = false;
+        }
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        if (!enrolled) {
+          biometricApproved = false;
+        } else if (biometricApproved) {
+          const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: "Face IDでロック解除",
+            cancelLabel: "キャンセル",
+            fallbackLabel: "パスコードを入力",
+            disableDeviceFallback: false,
+          });
+          const warningMessage = (result as { warning?: unknown }).warning;
+          if (
+            typeof warningMessage === "string" &&
+            warningMessage.includes("NSFaceIDUsageDescription")
+          ) {
+            biometricApproved = false;
+          } else {
+            biometricApproved = result.success;
+          }
+        }
+      }
+
+      if (!biometricApproved) {
+        await Promise.all([tokenStorage.remove(), credentialStorage.remove()]);
+        setToken(null);
+        setUser(null);
+        setStatus("signedOut");
+        return;
+      }
+
       const api = createUsersApi(stored);
       const profile = await api.usersMeGet();
       setToken(stored);
@@ -64,11 +105,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const signIn = useCallback(
     async ({ email, password }: UsersLoginPostRequest) => {
+      const normalizedEmail = String(email ?? "").trim();
+      const normalizedPassword = String(password ?? "").trim();
+      if (!normalizedEmail || !normalizedPassword) {
+        throw new Error("Invalid credentials provided");
+      }
       const api = createUsersApi();
+      const payload: UsersLoginPostRequest = {
+        email: normalizedEmail,
+        password: normalizedPassword,
+      };
       const result = await api.usersLoginPost({
-        usersLoginPostRequest: { email, password },
+        usersLoginPostRequest: payload,
       });
-      await tokenStorage.set(result.token);
+      await Promise.all([
+        tokenStorage.set(result.token),
+        credentialStorage.set(payload),
+      ]);
       setToken(result.token);
       setUser(result.user);
       setStatus("signedIn");
@@ -76,12 +129,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     []
   );
 
-  const signOut = useCallback(async () => {
-    await tokenStorage.remove();
-    setToken(null);
-    setUser(null);
-    setStatus("signedOut");
-  }, []);
+  const signOut = useCallback(
+    async (options?: { forgetCredentials?: boolean }) => {
+      const tasks = [tokenStorage.remove()];
+      if (options?.forgetCredentials) {
+        tasks.push(credentialStorage.remove());
+      }
+      await Promise.all(tasks);
+      setToken(null);
+      setUser(null);
+      setStatus("signedOut");
+    },
+    []
+  );
 
   const refreshUser = useCallback(async () => {
     if (!token) return;

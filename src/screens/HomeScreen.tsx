@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
-  ScrollView,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -21,13 +21,14 @@ import { createNotificationsApi, createUsersApi } from "@/api/client";
 import { withApiPath } from "@/constants/config";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import { colors } from "@/theme/colors";
+import { SymbolView } from "expo-symbols";
+import { Feather } from "@expo/vector-icons";
 
 export const HomeScreen: React.FC = () => {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, token, signOut, setUserState } = useAuth();
   const [enteredUsers, setEnteredUsers] = useState<EnteredUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<"enter" | "exit" | null>(
@@ -52,7 +53,6 @@ export const HomeScreen: React.FC = () => {
         [{ text: "OK", onPress: () => void signOut() }]
       );
     } finally {
-      setIsLoading(false);
       setRefreshing(false);
     }
   }, [setUserState, signOut, token]);
@@ -173,7 +173,7 @@ export const HomeScreen: React.FC = () => {
                 method: "DELETE",
               });
               if (!response.ok) throw new Error("Failed to delete account");
-              await signOut();
+              await signOut({ forgetCredentials: true });
             } catch (error) {
               console.error("Failed to delete account", error);
               Alert.alert("削除失敗", "アカウントの削除に失敗しました。");
@@ -186,6 +186,25 @@ export const HomeScreen: React.FC = () => {
 
   const enteredCount = useMemo(() => enteredUsers.length, [enteredUsers]);
   const refreshDisabled = refreshing || pendingAction !== null;
+  type SymbolName = React.ComponentProps<typeof SymbolView>["name"];
+
+  const renderSymbol = (
+    iosName: SymbolName,
+    fallbackName: React.ComponentProps<typeof Feather>["name"],
+    color: string
+  ) => {
+    if (Platform.OS === "ios") {
+      return (
+        <SymbolView
+          name={iosName}
+          tintColor={color}
+          style={styles.actionSymbol}
+          weight="regular"
+        />
+      );
+    }
+    return <Feather name={fallbackName} size={20} color={color} />;
+  };
 
   if (!user) {
     return (
@@ -195,41 +214,46 @@ export const HomeScreen: React.FC = () => {
     );
   }
 
+  const listHeader = (
+    <View style={styles.headerContainer}>
+      <View style={styles.topControls}>
+        <Button
+          title="すべてのユーザーを見る"
+          variant="secondary"
+          onPress={() => navigation.navigate("Users")}
+          leftIcon={renderSymbol("person.2.fill", "users", colors.primaryDark)}
+        />
+        <TouchableOpacity onPress={() => setSidebarOpen(true)}>
+          <Avatar uri={user.iconFileName} alt={user.name} size={72} />
+        </TouchableOpacity>
+      </View>
+
+      <StatusTitle entered={entered} />
+      <EnterExitButtons
+        entered={entered}
+        onEnter={handleEnter}
+        onExit={handleExit}
+        disabled={pendingAction !== null}
+      />
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{user.office.name}</Text>
+        <Text style={[styles.sectionTitle, styles.sectionSubtitle]}>
+          入室中ユーザー ({enteredCount}人)
+        </Text>
+      </View>
+    </View>
+  );
+
   return (
     <View style={styles.root}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.topControls}>
-          <Button
-            title="すべてのユーザーを見る"
-            variant="secondary"
-            onPress={() => navigation.navigate("Users")}
-          />
-          <TouchableOpacity onPress={() => setSidebarOpen(true)}>
-            <Avatar uri={user.iconFileName} alt={user.name} size={72} />
-          </TouchableOpacity>
-        </View>
-
-        <StatusTitle entered={entered} />
-        <EnterExitButtons
-          entered={entered}
-          onEnter={handleEnter}
-          onExit={handleExit}
-          disabled={pendingAction !== null}
-        />
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{user.office.name}</Text>
-          <Text style={[styles.sectionTitle, styles.sectionSubtitle]}>
-            入室中ユーザー ({enteredCount}人)
-          </Text>
-        </View>
-
-        <EnteredUsersList
-          me={user}
-          users={enteredUsers}
-          onSaveNote={handleSaveNote}
-        />
-      </ScrollView>
+      <EnteredUsersList
+        me={user}
+        users={enteredUsers}
+        onSaveNote={handleSaveNote}
+        header={listHeader}
+        contentContainerStyle={styles.listContent}
+      />
 
       <UserSidebar
         visible={isSidebarOpen}
@@ -250,9 +274,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
+  listContent: {
     paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingTop: 32,
+    paddingBottom: 32,
+    gap: 24,
+  },
+  headerContainer: {
     gap: 24,
   },
   topControls: {
@@ -260,6 +288,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 24,
+  },
+  actionSymbol: {
+    width: 20,
+    height: 20,
   },
   sectionHeader: {
     alignSelf: "center",

@@ -1,10 +1,11 @@
-import React from "react";
+import React, { type ReactNode } from "react";
 import {
   Pressable,
   StyleSheet,
   Text,
   TextStyle,
   ViewStyle,
+  View,
 } from "react-native";
 import { colors } from "@/theme/colors";
 import { Spinner } from "./Spinner";
@@ -20,6 +21,7 @@ type ButtonProps = {
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle | ViewStyle[];
+  leftIcon?: ReactNode;
 };
 
 const variantStyles: Record<
@@ -72,6 +74,7 @@ export const Button: React.FC<ButtonProps> = ({
   disabled = false,
   loading = false,
   style,
+  leftIcon,
 }) => {
   const theme = variantStyles[variant];
   const spinnerColor =
@@ -93,7 +96,10 @@ export const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <Spinner size={namedSizeMap.small} color={spinnerColor} />
       ) : (
-        <Text style={[styles.label, theme.text]}>{title}</Text>
+        <View style={styles.content}>
+          {leftIcon ? <View style={styles.iconWrapper}>{leftIcon}</View> : null}
+          <Text style={[styles.label, theme.text]}>{title}</Text>
+        </View>
       )}
     </Pressable>
   );
@@ -107,6 +113,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  content: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  iconWrapper: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   fullWidth: {
     alignSelf: "stretch",
