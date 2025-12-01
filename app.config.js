@@ -5,7 +5,7 @@ const config = {
   slug: "office-manager-native",
   version: "1.0.0",
   orientation: "portrait",
-  icon: "./assets/icon.png",
+  icon: "./assets/office-manager-icon.png",
   userInterfaceStyle: "light",
   updates: {
     url: "https://u.expo.dev/98a48421-8173-486e-92b8-71d9569e2b77",
@@ -22,13 +22,16 @@ const config = {
     supportsTablet: true,
     bundleIdentifier: "com.toma0705.officemanager",
     buildNumber: "1",
+    icon: "./assets/office-manager-icon.png",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      NSFaceIDUsageDescription:
+        "Face IDを使用してアカウントに安全にログインします。",
     },
   },
   android: {
     adaptiveIcon: {
-      foregroundImage: "./assets/adaptive-icon.png",
+      foregroundImage: "./assets/office-manager-icon.png",
       backgroundColor: "#ffffff",
     },
     package: "com.toma0705.officemanager",
@@ -39,6 +42,7 @@ const config = {
   },
   plugins: [
     "expo-updates",
+    "expo-secure-store",
     [
       "expo-build-properties",
       {

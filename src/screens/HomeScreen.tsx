@@ -173,7 +173,7 @@ export const HomeScreen: React.FC = () => {
                 method: "DELETE",
               });
               if (!response.ok) throw new Error("Failed to delete account");
-              await signOut();
+              await signOut({ forgetCredentials: true });
             } catch (error) {
               console.error("Failed to delete account", error);
               Alert.alert("削除失敗", "アカウントの削除に失敗しました。");
