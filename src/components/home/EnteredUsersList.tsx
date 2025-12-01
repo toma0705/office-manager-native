@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { EnteredUser, UserSafe } from "@office-manager/api-client";
-import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { colors } from "@/theme/colors";
@@ -10,9 +18,22 @@ type Props = {
   me: UserSafe | null;
   users: EnteredUser[];
   onSaveNote: (userId: number, note: string) => Promise<void> | void;
+  header?: React.ReactElement | null;
+  footer?: React.ReactElement | null;
+  contentContainerStyle?: StyleProp<ViewStyle>;
 };
 
 type NoteMap = Record<number, string>;
+
+const normalizeNoteValue = (value: unknown): string => {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value);
+};
 
 type ItemProps = {
   user: EnteredUser;
@@ -91,6 +112,9 @@ export const EnteredUsersList: React.FC<Props> = ({
   me,
   users,
   onSaveNote,
+  header,
+  footer,
+  contentContainerStyle,
 }) => {
   const [notes, setNotes] = useState<NoteMap>({});
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -98,7 +122,7 @@ export const EnteredUsersList: React.FC<Props> = ({
   useEffect(() => {
     const initialNotes: NoteMap = {};
     users.forEach((user) => {
-      initialNotes[user.id] = user.note ?? "";
+      initialNotes[user.id] = normalizeNoteValue(user.note);
     });
     setNotes(initialNotes);
     setEditingId(null);
@@ -120,7 +144,7 @@ export const EnteredUsersList: React.FC<Props> = ({
   const handleCancel = () => setEditingId(null);
 
   const handleSave = async (id: number) => {
-    const note = notes[id] ?? "";
+    const note = normalizeNoteValue(notes[id]);
     await onSaveNote(id, note);
     setEditingId(null);
   };
@@ -143,7 +167,9 @@ export const EnteredUsersList: React.FC<Props> = ({
           onSave={() => handleSave(item.id)}
         />
       )}
-      contentContainerStyle={styles.listContent}
+      ListHeaderComponent={header ?? undefined}
+      ListFooterComponent={footer ?? undefined}
+      contentContainerStyle={[styles.listContent, contentContainerStyle]}
       ListEmptyComponent={
         <Text style={styles.emptyText}>現在入室中のユーザーはいません</Text>
       }

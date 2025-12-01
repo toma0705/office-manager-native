@@ -5,7 +5,11 @@ const TOKEN_KEY = "office-manager/token";
 export const tokenStorage = {
   get: async (): Promise<string | null> => {
     try {
-      return await AsyncStorage.getItem(TOKEN_KEY);
+      const value = await AsyncStorage.getItem(TOKEN_KEY);
+      if (__DEV__) {
+        console.log("[tokenStorage] loaded", value, typeof value);
+      }
+      return value;
     } catch (error) {
       console.warn("Failed to load auth token", error);
       return null;
@@ -13,7 +17,10 @@ export const tokenStorage = {
   },
   set: async (token: string): Promise<void> => {
     try {
-      await AsyncStorage.setItem(TOKEN_KEY, token);
+      if (__DEV__) {
+        console.log("[tokenStorage] saving", token, typeof token);
+      }
+      await AsyncStorage.setItem(TOKEN_KEY, String(token ?? ""));
     } catch (error) {
       console.warn("Failed to persist auth token", error);
     }

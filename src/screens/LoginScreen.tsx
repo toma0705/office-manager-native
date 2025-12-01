@@ -9,6 +9,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import Constants from "expo-constants";
 import * as LocalAuthentication from "expo-local-authentication";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
@@ -28,6 +29,7 @@ export const LoginScreen: React.FC = () => {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { signIn, status } = useAuth();
+  const shouldRequireBiometric = Constants.appOwnership !== "expo";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -55,7 +57,7 @@ export const LoginScreen: React.FC = () => {
             setSavedCredentials(saved);
             setEmail(saved.email);
             setBiometricError("");
-            setBiometricVisible(true);
+            setBiometricVisible(shouldRequireBiometric);
           } else {
             setSavedCredentials(null);
             setBiometricVisible(false);
@@ -77,7 +79,7 @@ export const LoginScreen: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [status]);
+  }, [status, shouldRequireBiometric]);
 
   const handleBiometricDismiss = () => {
     if (biometricLoading) return;
@@ -86,12 +88,26 @@ export const LoginScreen: React.FC = () => {
 
   const handleBiometricOpen = () => {
     if (!savedCredentials) return;
+    if (!shouldRequireBiometric) {
+      setBiometricError(
+        "Expo Go では顔認証を利用できません。通常ログインをご利用ください。"
+      );
+      setBiometricVisible(false);
+      return;
+    }
     setBiometricError("");
     setBiometricVisible(true);
   };
 
   const handleBiometricLogin = async () => {
     if (!savedCredentials || biometricLoading) return;
+    if (!shouldRequireBiometric) {
+      setBiometricError(
+        "Expo Go では顔認証を利用できません。通常ログインをご利用ください。"
+      );
+      setBiometricVisible(false);
+      return;
+    }
     setBiometricError("");
     setBiometricLoading(true);
     let signedInSuccessfully = false;
@@ -114,6 +130,19 @@ export const LoginScreen: React.FC = () => {
         fallbackLabel: "パスコードを入力",
         disableDeviceFallback: false,
       });
+      const warningMessage = (result as { warning?: unknown }).warning;
+      if (
+        typeof warningMessage === "string" &&
+        warningMessage.includes("NSFaceIDUsageDescription")
+      ) {
+        setBiometricError(
+          "Face ID を利用するには iOS の設定でこのアプリにFace ID利用許可(NSFaceIDUsageDescription)を付与する必要があります。Expo Go ではご利用いただけません。"
+        );
+        await credentialStorage.remove();
+        setSavedCredentials(null);
+        setBiometricVisible(false);
+        return;
+      }
 
       if (!result.success) {
         if (result.error && result.error !== "user_cancel") {
@@ -132,6 +161,7 @@ export const LoginScreen: React.FC = () => {
       setBiometricVisible(false);
     } catch (error) {
       console.error("Failed to login via biometrics", error);
+      console.error(error instanceof Error ? error.stack : null);
       setBiometricError(
         "顔認証でのログインに失敗しました。手動でログインしてください。"
       );

@@ -2,6 +2,7 @@ import {
   type UsersLoginPostRequest,
   type UserSafe,
 } from "@office-manager/api-client";
+import Constants from "expo-constants";
 import * as LocalAuthentication from "expo-local-authentication";
 import React, {
   createContext,
@@ -35,6 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [status, setStatus] = useState<AuthStatus>("checking");
   const [user, setUser] = useState<UserSafe | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const shouldRequireBiometric = Constants.appOwnership !== "expo";
 
   const loadSession = useCallback(async () => {
     setStatus("checking");
@@ -46,18 +48,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
     try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
       let biometricApproved = true;
-      if (hasHardware) {
+
+      if (shouldRequireBiometric) {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        if (!hasHardware) {
+          biometricApproved = false;
+        }
         const enrolled = await LocalAuthentication.isEnrolledAsync();
-        if (enrolled) {
+        if (!enrolled) {
+          biometricApproved = false;
+        } else if (biometricApproved) {
           const result = await LocalAuthentication.authenticateAsync({
             promptMessage: "Face IDでロック解除",
             cancelLabel: "キャンセル",
             fallbackLabel: "パスコードを入力",
             disableDeviceFallback: false,
           });
-          biometricApproved = result.success;
+          const warningMessage = (result as { warning?: unknown }).warning;
+          if (
+            typeof warningMessage === "string" &&
+            warningMessage.includes("NSFaceIDUsageDescription")
+          ) {
+            biometricApproved = false;
+          } else {
+            biometricApproved = result.success;
+          }
         }
       }
 
@@ -89,10 +105,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const signIn = useCallback(
     async ({ email, password }: UsersLoginPostRequest) => {
+      const normalizedEmail = String(email ?? "").trim();
+      const normalizedPassword = String(password ?? "").trim();
+      if (!normalizedEmail || !normalizedPassword) {
+        throw new Error("Invalid credentials provided");
+      }
       const api = createUsersApi();
       const payload: UsersLoginPostRequest = {
-        email,
-        password,
+        email: normalizedEmail,
+        password: normalizedPassword,
       };
       const result = await api.usersLoginPost({
         usersLoginPostRequest: payload,

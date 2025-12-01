@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -30,7 +29,6 @@ export const HomeScreen: React.FC = () => {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, token, signOut, setUserState } = useAuth();
   const [enteredUsers, setEnteredUsers] = useState<EnteredUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<"enter" | "exit" | null>(
@@ -55,7 +53,6 @@ export const HomeScreen: React.FC = () => {
         [{ text: "OK", onPress: () => void signOut() }]
       );
     } finally {
-      setIsLoading(false);
       setRefreshing(false);
     }
   }, [setUserState, signOut, token]);
@@ -217,46 +214,46 @@ export const HomeScreen: React.FC = () => {
     );
   }
 
+  const listHeader = (
+    <View style={styles.headerContainer}>
+      <View style={styles.topControls}>
+        <Button
+          title="すべてのユーザーを見る"
+          variant="secondary"
+          onPress={() => navigation.navigate("Users")}
+          leftIcon={renderSymbol("person.2.fill", "users", colors.primaryDark)}
+        />
+        <TouchableOpacity onPress={() => setSidebarOpen(true)}>
+          <Avatar uri={user.iconFileName} alt={user.name} size={72} />
+        </TouchableOpacity>
+      </View>
+
+      <StatusTitle entered={entered} />
+      <EnterExitButtons
+        entered={entered}
+        onEnter={handleEnter}
+        onExit={handleExit}
+        disabled={pendingAction !== null}
+      />
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{user.office.name}</Text>
+        <Text style={[styles.sectionTitle, styles.sectionSubtitle]}>
+          入室中ユーザー ({enteredCount}人)
+        </Text>
+      </View>
+    </View>
+  );
+
   return (
     <View style={styles.root}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.topControls}>
-          <Button
-            title="すべてのユーザーを見る"
-            variant="secondary"
-            onPress={() => navigation.navigate("Users")}
-            leftIcon={renderSymbol(
-              "person.2.fill",
-              "users",
-              colors.primaryDark
-            )}
-          />
-          <TouchableOpacity onPress={() => setSidebarOpen(true)}>
-            <Avatar uri={user.iconFileName} alt={user.name} size={72} />
-          </TouchableOpacity>
-        </View>
-
-        <StatusTitle entered={entered} />
-        <EnterExitButtons
-          entered={entered}
-          onEnter={handleEnter}
-          onExit={handleExit}
-          disabled={pendingAction !== null}
-        />
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{user.office.name}</Text>
-          <Text style={[styles.sectionTitle, styles.sectionSubtitle]}>
-            入室中ユーザー ({enteredCount}人)
-          </Text>
-        </View>
-
-        <EnteredUsersList
-          me={user}
-          users={enteredUsers}
-          onSaveNote={handleSaveNote}
-        />
-      </ScrollView>
+      <EnteredUsersList
+        me={user}
+        users={enteredUsers}
+        onSaveNote={handleSaveNote}
+        header={listHeader}
+        contentContainerStyle={styles.listContent}
+      />
 
       <UserSidebar
         visible={isSidebarOpen}
@@ -277,9 +274,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
+  listContent: {
     paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingTop: 32,
+    paddingBottom: 32,
+    gap: 24,
+  },
+  headerContainer: {
     gap: 24,
   },
   topControls: {
