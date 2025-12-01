@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { SymbolView } from "expo-symbols";
+import { Feather } from "@expo/vector-icons";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -233,7 +234,19 @@ export const LoginScreen: React.FC = () => {
                   disabled={biometricLoading}
                   accessibilityLabel="顔認証ポップアップを閉じる"
                 >
-                  <Text style={styles.biometricCloseLabel}>×</Text>
+                  {Platform.OS === "ios" ? (
+                    <SymbolView
+                      name="xmark.circle.fill"
+                      style={styles.biometricCloseSymbol}
+                      tintColor={colors.mutedText}
+                    />
+                  ) : (
+                    <Feather
+                      name="x-circle"
+                      size={28}
+                      color={colors.mutedText}
+                    />
+                  )}
                 </Pressable>
                 <View style={styles.biometricIconWrapper}>
                   {Platform.OS === "ios" ? (
@@ -335,9 +348,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  biometricCloseLabel: {
-    fontSize: 20,
-    color: colors.mutedText,
+  biometricCloseSymbol: {
+    width: 28,
+    height: 28,
   },
   biometricIconWrapper: {
     alignSelf: "center",

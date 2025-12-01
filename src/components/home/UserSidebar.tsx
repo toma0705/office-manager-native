@@ -2,6 +2,7 @@ import React from "react";
 import type { UserSafe } from "@office-manager/api-client";
 import {
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TouchableWithoutFeedback,
@@ -10,6 +11,8 @@ import {
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { colors } from "@/theme/colors";
+import { SymbolView } from "expo-symbols";
+import { Feather } from "@expo/vector-icons";
 
 type Props = {
   visible: boolean;
@@ -33,6 +36,27 @@ export const UserSidebar: React.FC<Props> = ({
   onDelete,
 }) => {
   if (!user) return null;
+
+  type SymbolName = React.ComponentProps<typeof SymbolView>["name"];
+
+  const renderIcon = (
+    iosName: SymbolName,
+    fallbackName: React.ComponentProps<typeof Feather>["name"],
+    color: string
+  ) => {
+    if (Platform.OS === "ios") {
+      return (
+        <SymbolView
+          name={iosName}
+          tintColor={color}
+          style={styles.actionSymbol}
+          weight="regular"
+        />
+      );
+    }
+    return <Feather name={fallbackName} size={20} color={color} />;
+  };
+
   return (
     <Modal
       visible={visible}
@@ -57,18 +81,29 @@ export const UserSidebar: React.FC<Props> = ({
                 onPress={onRefresh}
                 disabled={refreshDisabled}
                 loading={refreshing}
+                leftIcon={renderIcon(
+                  "arrow.clockwise",
+                  "refresh-cw",
+                  colors.primaryDark
+                )}
                 fullWidth
               />
               <Button
                 title="ログアウト"
                 variant="secondary"
                 onPress={onLogout}
+                leftIcon={renderIcon(
+                  "rectangle.portrait.and.arrow.right",
+                  "log-out",
+                  colors.primaryDark
+                )}
                 fullWidth
               />
               <Button
                 title="アカウント削除"
                 variant="danger"
                 onPress={onDelete}
+                leftIcon={renderIcon("trash.fill", "trash-2", colors.white)}
                 fullWidth
               />
             </View>
@@ -114,5 +149,9 @@ const styles = StyleSheet.create({
   office: {
     fontSize: 14,
     color: colors.mutedText,
+  },
+  actionSymbol: {
+    width: 20,
+    height: 20,
   },
 });
