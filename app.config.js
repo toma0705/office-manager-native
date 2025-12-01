@@ -7,6 +7,12 @@ const config = {
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
+  updates: {
+    url: "https://u.expo.dev/98a48421-8173-486e-92b8-71d9569e2b77",
+  },
+  runtimeVersion: {
+    policy: "appVersion",
+  },
   splash: {
     image: "./assets/splash-icon.png",
     resizeMode: "contain",
@@ -16,6 +22,9 @@ const config = {
     supportsTablet: true,
     bundleIdentifier: "com.toma0705.officemanager",
     buildNumber: "1",
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     adaptiveIcon: {
@@ -29,6 +38,7 @@ const config = {
     favicon: "./assets/favicon.png",
   },
   plugins: [
+    "expo-updates",
     [
       "expo-build-properties",
       {
