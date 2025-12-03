@@ -39,7 +39,7 @@ export const ResetPasswordScreen: React.FC = () => {
         usersResetPasswordTokenPostRequest: { password: password.trim() },
       });
       setMessage(
-        "パスワードがリセットされました。ログイン画面から再度ログインしてください。"
+        "パスワードがリセットされました。アプリに戻り、ログイン画面から再度ログインしてください。"
       );
     } catch (error) {
       console.error("failed to reset password", error);
