@@ -37,7 +37,7 @@ export const ResetPasswordRequestScreen: React.FC = () => {
   };
 
   return (
-    <PageContainer>
+    <PageContainer contentStyle={styles.pageContent}>
       <Text style={styles.title}>パスワード再設定</Text>
       <Input
         label="登録メールアドレス"
@@ -70,6 +70,10 @@ export const ResetPasswordRequestScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  pageContent: {
+    justifyContent: "flex-start",
+    paddingTop: 64,
+  },
   title: {
     textAlign: "center",
     fontSize: 24,
