@@ -1,12 +1,17 @@
 import React, { useState } from "react";
 import { Alert, StyleSheet, Text } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { createUsersApi } from "@/api/client";
+import type { RootStackParamList } from "@/navigation/AppNavigator";
 import { colors } from "@/theme/colors";
 
 export const ResetPasswordRequestScreen: React.FC = () => {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -36,8 +41,10 @@ export const ResetPasswordRequestScreen: React.FC = () => {
     }
   };
 
+  const handleGoLogin = () => navigation.navigate("Login");
+
   return (
-    <PageContainer>
+    <PageContainer contentStyle={styles.pageContent}>
       <Text style={styles.title}>パスワード再設定</Text>
       <Input
         label="登録メールアドレス"
@@ -51,6 +58,12 @@ export const ResetPasswordRequestScreen: React.FC = () => {
         title={loading ? "送信中..." : "再設定メールを送信"}
         onPress={handleSubmit}
         loading={loading}
+        fullWidth
+      />
+      <Button
+        title="ログイン画面に戻る"
+        variant="secondary"
+        onPress={handleGoLogin}
         fullWidth
       />
       {message ? (
@@ -70,6 +83,12 @@ export const ResetPasswordRequestScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  pageContent: {
+    flexGrow: 1,
+    alignItems: "stretch",
+    justifyContent: "flex-start",
+    paddingTop: 64,
+  },
   title: {
     textAlign: "center",
     fontSize: 24,

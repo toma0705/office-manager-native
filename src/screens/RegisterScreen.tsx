@@ -78,14 +78,26 @@ export const RegisterScreen: React.FC = () => {
 
   const handleRegister = useCallback(async () => {
     if (loading) return;
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
     if (
-      !name.trim() ||
-      !email.trim() ||
-      !password.trim() ||
+      !trimmedName ||
+      !trimmedEmail ||
+      !trimmedPassword ||
       !icon ||
       !selectedOffice
     ) {
       Alert.alert("入力内容を確認してください", "必須項目が未入力です。");
+      return;
+    }
+
+    if (!trimmedEmail.toLowerCase().endsWith("@4nonome.com")) {
+      Alert.alert(
+        "メールアドレスが無効です",
+        "@4nonome.com ドメインのメールアドレスのみ登録できます。"
+      );
       return;
     }
 
@@ -94,9 +106,9 @@ export const RegisterScreen: React.FC = () => {
     setErrorDetail("");
     try {
       const formData = new FormData();
-      formData.append("name", name.trim());
-      formData.append("email", email.trim());
-      formData.append("password", password.trim());
+      formData.append("name", trimmedName);
+      formData.append("email", trimmedEmail);
+      formData.append("password", trimmedPassword);
       formData.append("officeCode", selectedOffice);
       formData.append("icon", {
         uri: icon.uri,

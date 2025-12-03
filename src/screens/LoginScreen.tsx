@@ -316,14 +316,6 @@ export const LoginScreen: React.FC = () => {
                     </Text>
                   )}
                 </Pressable>
-                <Pressable
-                  onPress={handleBiometricDismiss}
-                  disabled={biometricLoading}
-                >
-                  <Text style={styles.biometricSecondaryButton}>
-                    別の方法でログイン
-                  </Text>
-                </Pressable>
               </View>
             </TouchableWithoutFeedback>
           </View>
