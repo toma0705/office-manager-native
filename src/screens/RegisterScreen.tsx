@@ -1,5 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Linking, // 追加
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
@@ -49,21 +60,22 @@ export const RegisterScreen: React.FC = () => {
     [offices]
   );
 
-  const ensurePermissions = useCallback(async () => {
+  const handlePickIcon = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== ImagePicker.PermissionStatus.GRANTED) {
       Alert.alert(
         "権限が必要です",
-        "写真ライブラリへのアクセスを許可してください。"
+        "プロフィール画像を設定するには写真ライブラリへのアクセス許可が必要です。",
+        [
+          { text: "キャンセル", style: "cancel" },
+          {
+            text: "設定を開く",
+            onPress: () => Linking.openSettings(),
+          },
+        ]
       );
-      return false;
+      return;
     }
-    return true;
-  }, []);
-
-  const handlePickIcon = useCallback(async () => {
-    const granted = await ensurePermissions();
-    if (!granted) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
       quality: 0.8,
@@ -74,7 +86,7 @@ export const RegisterScreen: React.FC = () => {
     if (!result.canceled) {
       setIcon(result.assets[0]);
     }
-  }, [ensurePermissions]);
+  }, []);
 
   const handleRegister = useCallback(async () => {
     if (loading) return;

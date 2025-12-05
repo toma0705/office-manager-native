@@ -27,6 +27,8 @@ const config = {
       ITSAppUsesNonExemptEncryption: false,
       NSFaceIDUsageDescription:
         "Face IDを使用してアカウントに安全にログインします。",
+      NSPhotoLibraryUsageDescription:
+        "プロフィール画像を設定するために写真ライブラリにアクセスします。",
     },
   },
   android: {
