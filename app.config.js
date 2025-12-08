@@ -1,6 +1,6 @@
 /** @type {import('expo/config').ExpoConfig} */
 const config = {
-  name: "入退室管理 PlayGround専用",
+  name: "入退室管理",
   owner: "toma0705",
   slug: "office-manager-native",
   version: "1.0.0",
