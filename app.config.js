@@ -1,6 +1,6 @@
 /** @type {import('expo/config').ExpoConfig} */
 const config = {
-  name: "office-manager-native",
+  name: "入退室管理 PlayGround専用",
   owner: "toma0705",
   slug: "office-manager-native",
   version: "1.0.0",
@@ -27,6 +27,8 @@ const config = {
       ITSAppUsesNonExemptEncryption: false,
       NSFaceIDUsageDescription:
         "Face IDを使用してアカウントに安全にログインします。",
+      NSPhotoLibraryUsageDescription:
+        "プロフィール画像を設定するために写真ライブラリにアクセスします。",
     },
   },
   android: {

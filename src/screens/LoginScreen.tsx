@@ -198,7 +198,7 @@ export const LoginScreen: React.FC = () => {
     <>
       <PageContainer contentStyle={styles.pageContent}>
         <View style={styles.form}>
-          <Text style={styles.title}>Office Manager</Text>
+          <Text style={styles.title}>入退室管理{"\n"}PlayGround専用</Text>
           <Input
             label="メールアドレス"
             keyboardType="email-address"
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 28,
     fontWeight: "700",
-    marginBottom: 12,
+    marginBottom: 48,
     color: colors.primaryDark,
   },
   error: {
