@@ -1,8 +1,10 @@
 # Office Manager Native
 
-これは Office Manager プロジェクトの一部です
-Web アプリのリポジトリはこちら:[office-manager-web](https://github.com/toma0705/okayama-office-manager)
-Web/Native 双方から同じバックエンド API を利用するための OpenAPI リポジトリはこちら:[office-manager-api-client](https://github.com/toma0705/office-manager-api-client)
+これは Office Manager プロジェクトの一部です。
+
+Web アプリのリポジトリはこちら：[office-manager-web](https://github.com/toma0705/okayama-office-manager)
+
+Web/Native 双方から同じバックエンド API を利用するための OpenAPI リポジトリはこちら：[office-manager-api-client](https://github.com/toma0705/office-manager-api-client)
 
 ## 技術スタックと選定理由
 
