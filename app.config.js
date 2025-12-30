@@ -3,7 +3,7 @@ const config = {
   name: "入退室管理",
   owner: "toma0705",
   slug: "office-manager-native",
-  version: "1.0.0",
+  version: "1.1.0",
   orientation: "portrait",
   icon: "./assets/office-manager-icon.png",
   userInterfaceStyle: "light",
