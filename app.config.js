@@ -49,14 +49,24 @@ const config = {
       "expo-build-properties",
       {
         ios: {
-          deploymentTarget: "15.1",
-        },
-        android: {
-          compileSdkVersion: 35,
-          targetSdkVersion: 35,
+          useFrameworks: "static",
         },
       },
     ],
+    [
+      "expo-location",
+      {
+        locationAlwaysAndWhenInUsePermission:
+          "オフィスの近くに到着した際に入退室の通知を送るために位置情報を使用します。",
+        locationAlwaysPermission:
+          "オフィスの近くに到着した際に入退室の通知を送るために、常に位置情報を使用します。",
+        locationWhenInUsePermission:
+          "オフィスの近くに到着した際に入退室の通知を送るために位置情報を使用します。",
+        isIosBackgroundLocationEnabled: true,
+        isAndroidBackgroundLocationEnabled: true,
+      },
+    ],
+    "expo-font",
   ],
   extra: {
     eas: {

@@ -11,6 +11,14 @@ import { HomeScreen } from "@/screens/HomeScreen";
 import { UsersScreen } from "@/screens/UsersScreen";
 import { Spinner } from "@/components/ui/Spinner";
 import { namedSizeMap } from "@/utils/size";
+import * as Notifications from "expo-notifications";
+import { useEffect } from "react";
+import {
+  setupNotifications,
+  NOTIFICATION_ACTIONS,
+} from "@/utils/notifications";
+import { startGeofencing, stopGeofencing } from "@/utils/geofencing";
+import { handleEnterAction, handleExitAction } from "@/utils/backgroundActions";
 
 const PlaceholderScreen = () => (
   <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -38,6 +46,33 @@ const LoadingScreen = () => (
 
 export const AppNavigator: React.FC = () => {
   const { status } = useAuth();
+
+  useEffect(() => {
+    setupNotifications();
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const actionId = response.actionIdentifier;
+        if (actionId === NOTIFICATION_ACTIONS.ENTER) {
+          handleEnterAction();
+        } else if (actionId === NOTIFICATION_ACTIONS.EXIT) {
+          handleExitAction();
+        }
+      }
+    );
+
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    if (status === "signedIn") {
+      // TODO: オフィスの座標を動的に取得する
+      // 現在は仮で岡山大学付近 (34.6850, 133.9190)
+      startGeofencing(34.685, 133.919).catch(console.error);
+    } else {
+      stopGeofencing().catch(console.error);
+    }
+  }, [status]);
 
   return (
     <NavigationContainer>
