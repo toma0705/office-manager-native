@@ -27,6 +27,8 @@ const config = {
       ITSAppUsesNonExemptEncryption: false,
       NSFaceIDUsageDescription:
         "Face IDを使用してアカウントに安全にログインします。",
+      NSLocationWhenInUseUsageDescription:
+        "オフィス付近への到着・離脱を検知して、自動で入退室を記録するために位置情報を利用します。",
       NSPhotoLibraryUsageDescription:
         "プロフィール画像を設定するために写真ライブラリにアクセスします。",
     },
@@ -37,6 +39,7 @@ const config = {
       backgroundColor: "#ffffff",
     },
     package: "com.toma0705.officemanager",
+    permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
     versionCode: 1,
   },
   web: {

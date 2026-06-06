@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   Platform,
@@ -10,6 +16,7 @@ import {
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { EnteredUser } from "@office-manager/api-client";
+import * as Location from "expo-location";
 import { StatusTitle } from "@/components/home/StatusTitle";
 import { EnterExitButtons } from "@/components/home/EnterExitButtons";
 import { EnteredUsersList } from "@/components/home/EnteredUsersList";
@@ -23,6 +30,12 @@ import type { RootStackParamList } from "@/navigation/AppNavigator";
 import { colors } from "@/theme/colors";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
+import {
+  calculateDistanceMeters,
+  getOfficeLocation,
+  shouldAutoEnter,
+  shouldAutoExit,
+} from "@/utils/location";
 
 export const HomeScreen: React.FC = () => {
   const navigation =
@@ -34,6 +47,13 @@ export const HomeScreen: React.FC = () => {
   const [pendingAction, setPendingAction] = useState<"enter" | "exit" | null>(
     null
   );
+  const [locationMessage, setLocationMessage] = useState(
+    "位置情報を確認しています..."
+  );
+  const [lastDistanceMeters, setLastDistanceMeters] = useState<number | null>(
+    null
+  );
+  const autoActionInFlightRef = useRef(false);
 
   const entered = Boolean(user?.entered);
 
@@ -56,12 +76,6 @@ export const HomeScreen: React.FC = () => {
       setRefreshing(false);
     }
   }, [setUserState, signOut, token]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void fetchData();
-    }, [fetchData])
-  );
 
   const notifyStatus = useCallback(
     async (status: "入室" | "退室" | "メモを追加", note?: string) => {
@@ -101,35 +115,165 @@ export const HomeScreen: React.FC = () => {
     [token, user]
   );
 
-  const handleEnter = useCallback(async () => {
-    if (!user || pendingAction) return;
-    setPendingAction("enter");
-    try {
-      await performAction(`/users/${user.id}/enter`);
-      await notifyStatus("入室");
-      await fetchData();
-    } catch (error) {
-      console.error("Failed to enter", error);
-      Alert.alert("入室に失敗しました", "再度お試しください。");
-    } finally {
-      setPendingAction(null);
+  const runAttendanceAction = useCallback(
+    async (action: "enter" | "exit", mode: "manual" | "auto") => {
+      if (!user || pendingAction) return false;
+
+      setPendingAction(action);
+      if (mode === "auto") {
+        autoActionInFlightRef.current = true;
+      }
+
+      try {
+        await performAction(`/users/${user.id}/${action}`);
+        await notifyStatus(action === "enter" ? "入室" : "退室");
+        await fetchData();
+        return true;
+      } catch (error) {
+        console.error(`Failed to ${action}`, error);
+        if (mode === "manual") {
+          Alert.alert(
+            action === "enter" ? "入室に失敗しました" : "退室に失敗しました",
+            "再度お試しください。"
+          );
+        }
+        return false;
+      } finally {
+        setPendingAction(null);
+        if (mode === "auto") {
+          autoActionInFlightRef.current = false;
+        }
+      }
+    },
+    [fetchData, notifyStatus, pendingAction, performAction, user]
+  );
+
+  const evaluateAutoAttendance = useCallback(async () => {
+    if (!user || !token || pendingAction || autoActionInFlightRef.current) {
+      return;
     }
-  }, [fetchData, notifyStatus, pendingAction, performAction, user]);
+
+    const officeLocation = getOfficeLocation(user.office);
+    if (!officeLocation) {
+      setLastDistanceMeters(null);
+      setLocationMessage(
+        `${user.office.name} はまだ自動入退室の対象外です。`
+      );
+      return;
+    }
+
+    try {
+      const permission = await Location.getForegroundPermissionsAsync();
+      let status = permission.status;
+
+      if (status !== "granted" && permission.canAskAgain) {
+        const requested = await Location.requestForegroundPermissionsAsync();
+        status = requested.status;
+      }
+
+      if (status !== "granted") {
+        setLastDistanceMeters(null);
+        setLocationMessage(
+          "位置情報が未許可のため、自動入退室は停止しています。"
+        );
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const distanceMeters = calculateDistanceMeters(
+        {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        },
+        officeLocation
+      );
+
+      setLastDistanceMeters(distanceMeters);
+
+      if (!entered && shouldAutoEnter(distanceMeters, officeLocation)) {
+        setLocationMessage("オフィス到着を検知しました。自動で入室します。");
+        const succeeded = await runAttendanceAction("enter", "auto");
+        setLocationMessage(
+          succeeded
+            ? `オフィスから約${Math.round(
+                distanceMeters
+              )}mです。自動で入室しました。`
+            : `オフィスから約${Math.round(
+                distanceMeters
+              )}mですが、自動入室に失敗しました。`
+        );
+        return;
+      }
+
+      if (entered && shouldAutoExit(distanceMeters, officeLocation)) {
+        setLocationMessage("オフィス離脱を検知しました。自動で退室します。");
+        const succeeded = await runAttendanceAction("exit", "auto");
+        setLocationMessage(
+          succeeded
+            ? `オフィスから約${Math.round(
+                distanceMeters
+              )}m離れたため、自動で退室しました。`
+            : `オフィスから約${Math.round(
+                distanceMeters
+              )}mですが、自動退室に失敗しました。`
+        );
+        return;
+      }
+
+      setLocationMessage(
+        entered
+          ? `オフィスから約${Math.round(
+              distanceMeters
+            )}mです。十分に離れると自動退室します。`
+          : `オフィスから約${Math.round(
+              distanceMeters
+            )}mです。圏内に入ると自動入室します。`
+      );
+    } catch (error) {
+      console.error("Failed to evaluate auto attendance", error);
+      setLastDistanceMeters(null);
+      setLocationMessage("位置情報の取得に失敗しました。");
+    }
+  }, [entered, pendingAction, runAttendanceAction, token, user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchData();
+    }, [fetchData])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void evaluateAutoAttendance();
+
+      const intervalId = setInterval(() => {
+        void evaluateAutoAttendance();
+      }, 5_000);
+
+      return () => {
+        clearInterval(intervalId);
+      };
+    }, [evaluateAutoAttendance])
+  );
+
+  useEffect(() => {
+    if (!user?.office) return;
+    if (!getOfficeLocation(user.office)) {
+      setLastDistanceMeters(null);
+      setLocationMessage(`${user.office.name} はまだ自動入退室の対象外です。`);
+    }
+  }, [user?.office]);
+
+  const handleEnter = useCallback(async () => {
+    await runAttendanceAction("enter", "manual");
+  }, [runAttendanceAction]);
 
   const handleExit = useCallback(async () => {
-    if (!user || pendingAction) return;
-    setPendingAction("exit");
-    try {
-      await performAction(`/users/${user.id}/exit`);
-      await notifyStatus("退室");
-      await fetchData();
-    } catch (error) {
-      console.error("Failed to exit", error);
-      Alert.alert("退室に失敗しました", "再度お試しください。");
-    } finally {
-      setPendingAction(null);
-    }
-  }, [fetchData, notifyStatus, pendingAction, performAction, user]);
+    await runAttendanceAction("exit", "manual");
+  }, [runAttendanceAction]);
 
   const handleSaveNote = useCallback(
     async (userId: number, note: string) => {
@@ -229,6 +373,12 @@ export const HomeScreen: React.FC = () => {
       </View>
 
       <StatusTitle entered={entered} />
+      <Text style={styles.locationStatus}>{locationMessage}</Text>
+      {lastDistanceMeters !== null ? (
+        <Text style={styles.locationMeta}>
+          判定距離: 約{Math.round(lastDistanceMeters)}m
+        </Text>
+      ) : null}
       <EnterExitButtons
         entered={entered}
         onEnter={handleEnter}
@@ -292,6 +442,19 @@ const styles = StyleSheet.create({
   actionSymbol: {
     width: 20,
     height: 20,
+  },
+  locationStatus: {
+    marginTop: -8,
+    textAlign: "center",
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.text,
+  },
+  locationMeta: {
+    marginTop: -16,
+    textAlign: "center",
+    fontSize: 12,
+    color: colors.mutedText,
   },
   sectionHeader: {
     alignSelf: "center",
