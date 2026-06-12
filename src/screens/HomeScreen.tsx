@@ -27,6 +27,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { createNotificationsApi, createUsersApi } from "@/api/client";
 import { withApiPath } from "@/constants/config";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
+import { ensureBackgroundAttendanceMonitoring } from "@/services/backgroundGeofencing";
 import { colors } from "@/theme/colors";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
@@ -53,7 +54,10 @@ export const HomeScreen: React.FC = () => {
   const [lastDistanceMeters, setLastDistanceMeters] = useState<number | null>(
     null
   );
+  const [backgroundMonitoringMessage, setBackgroundMonitoringMessage] =
+    useState("バックグラウンド監視を設定中です...");
   const autoActionInFlightRef = useRef(false);
+  const backgroundSetupAttemptedRef = useRef(false);
 
   const entered = Boolean(user?.entered);
 
@@ -260,6 +264,46 @@ export const HomeScreen: React.FC = () => {
   );
 
   useEffect(() => {
+    if (!user || !token || backgroundSetupAttemptedRef.current) return;
+    backgroundSetupAttemptedRef.current = true;
+
+    const setup = async () => {
+      const result = await ensureBackgroundAttendanceMonitoring(token, user);
+      if (result.started) {
+        setBackgroundMonitoringMessage(
+          "バックグラウンド監視が有効です。アプリを閉じても入退室を判定します。"
+        );
+        return;
+      }
+
+      switch (result.reason) {
+        case "background-denied":
+          setBackgroundMonitoringMessage(
+            "バックグラウンド位置情報が未許可のため、アプリ表示中のみ自動判定します。"
+          );
+          break;
+        case "foreground-denied":
+          setBackgroundMonitoringMessage(
+            "位置情報が未許可のため、バックグラウンド監視を開始できません。"
+          );
+          break;
+        case "task-manager-unavailable":
+          setBackgroundMonitoringMessage(
+            "この実行環境ではバックグラウンド監視を利用できません。"
+          );
+          break;
+        case "unsupported-office":
+          setBackgroundMonitoringMessage(
+            "このオフィスはまだバックグラウンド監視の対象外です。"
+          );
+          break;
+      }
+    };
+
+    void setup();
+  }, [token, user]);
+
+  useEffect(() => {
     if (!user?.office) return;
     if (!getOfficeLocation(user.office)) {
       setLastDistanceMeters(null);
@@ -379,6 +423,9 @@ export const HomeScreen: React.FC = () => {
           判定距離: 約{Math.round(lastDistanceMeters)}m
         </Text>
       ) : null}
+      <Text style={styles.backgroundMonitoringStatus}>
+        {backgroundMonitoringMessage}
+      </Text>
       <EnterExitButtons
         entered={entered}
         onEnter={handleEnter}
@@ -454,6 +501,13 @@ const styles = StyleSheet.create({
     marginTop: -16,
     textAlign: "center",
     fontSize: 12,
+    color: colors.mutedText,
+  },
+  backgroundMonitoringStatus: {
+    marginTop: -18,
+    textAlign: "center",
+    fontSize: 12,
+    lineHeight: 18,
     color: colors.mutedText,
   },
   sectionHeader: {

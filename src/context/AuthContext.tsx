@@ -13,6 +13,10 @@ import React, {
   useState,
 } from "react";
 import { createUsersApi } from "@/api/client";
+import {
+  stopBackgroundAttendanceMonitoring,
+  syncBackgroundAttendanceSnapshot,
+} from "@/services/backgroundGeofencing";
 import { credentialStorage } from "@/storage/credentialStorage";
 import { tokenStorage } from "@/storage/tokenStorage";
 
@@ -42,6 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setStatus("checking");
     const stored = await tokenStorage.get();
     if (!stored) {
+      await stopBackgroundAttendanceMonitoring();
       setToken(null);
       setUser(null);
       setStatus("signedOut");
@@ -87,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const api = createUsersApi(stored);
       const profile = await api.usersMeGet();
+      await syncBackgroundAttendanceSnapshot(stored, profile.user);
       setToken(stored);
       setUser(profile.user);
       setStatus("signedIn");
@@ -122,6 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         tokenStorage.set(result.token),
         credentialStorage.set(payload),
       ]);
+      await syncBackgroundAttendanceSnapshot(result.token, result.user);
       setToken(result.token);
       setUser(result.user);
       setStatus("signedIn");
@@ -136,6 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         tasks.push(credentialStorage.remove());
       }
       await Promise.all(tasks);
+      await stopBackgroundAttendanceMonitoring();
       setToken(null);
       setUser(null);
       setStatus("signedOut");
@@ -148,6 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const api = createUsersApi(token);
       const profile = await api.usersMeGet();
+      await syncBackgroundAttendanceSnapshot(token, profile.user);
       setUser(profile.user);
       setStatus("signedIn");
     } catch (error) {
@@ -157,9 +166,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [signOut, token]);
 
   const setUserState = useCallback((next: UserSafe | null) => {
+    if (token && next) {
+      void syncBackgroundAttendanceSnapshot(token, next);
+    }
     setUser(next);
     setStatus(next ? "signedIn" : "signedOut");
-  }, []);
+  }, [token]);
 
   const value = useMemo<AuthContextValue>(
     () => ({ status, user, token, signIn, signOut, refreshUser, setUserState }),
