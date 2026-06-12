@@ -27,6 +27,10 @@ const config = {
       ITSAppUsesNonExemptEncryption: false,
       NSFaceIDUsageDescription:
         "Face IDを使用してアカウントに安全にログインします。",
+      NSLocationAlwaysAndWhenInUseUsageDescription:
+        "アプリを閉じていてもオフィスへの到着・離脱を検知し、自動で入退室を記録するために位置情報を利用します。",
+      NSLocationWhenInUseUsageDescription:
+        "オフィス付近への到着・離脱を検知して、自動で入退室を記録するために位置情報を利用します。",
       NSPhotoLibraryUsageDescription:
         "プロフィール画像を設定するために写真ライブラリにアクセスします。",
     },
@@ -37,6 +41,13 @@ const config = {
       backgroundColor: "#ffffff",
     },
     package: "com.toma0705.officemanager",
+    permissions: [
+      "ACCESS_COARSE_LOCATION",
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_BACKGROUND_LOCATION",
+      "FOREGROUND_SERVICE",
+      "FOREGROUND_SERVICE_LOCATION",
+    ],
     versionCode: 1,
   },
   web: {
@@ -45,6 +56,17 @@ const config = {
   plugins: [
     "expo-updates",
     "expo-secure-store",
+    [
+      "expo-location",
+      {
+        locationWhenInUsePermission:
+          "オフィス付近への到着・離脱を検知して、自動で入退室を記録するために位置情報を利用します。",
+        locationAlwaysAndWhenInUsePermission:
+          "アプリを閉じていてもオフィスへの到着・離脱を検知し、自動で入退室を記録するために位置情報を利用します。",
+        isIosBackgroundLocationEnabled: true,
+        isAndroidBackgroundLocationEnabled: true,
+      },
+    ],
     [
       "expo-build-properties",
       {
