@@ -46,16 +46,10 @@ export const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<"enter" | "exit" | null>(
-    null
+    null,
   );
-  const [locationMessage, setLocationMessage] = useState(
-    "位置情報を確認しています..."
-  );
-  const [lastDistanceMeters, setLastDistanceMeters] = useState<number | null>(
-    null
-  );
-  const [backgroundMonitoringMessage, setBackgroundMonitoringMessage] =
-    useState("バックグラウンド監視を設定中です...");
+  const [locationMessage, setLocationMessage] =
+    useState("位置情報を確認しています...");
   const autoActionInFlightRef = useRef(false);
   const backgroundSetupAttemptedRef = useRef(false);
 
@@ -74,7 +68,7 @@ export const HomeScreen: React.FC = () => {
       Alert.alert(
         "エラー",
         "ユーザー情報の取得に失敗しました。ログインし直してください。",
-        [{ text: "OK", onPress: () => void signOut() }]
+        [{ text: "OK", onPress: () => void signOut() }],
       );
     } finally {
       setRefreshing(false);
@@ -98,7 +92,7 @@ export const HomeScreen: React.FC = () => {
         console.warn("Failed to send notification", error);
       }
     },
-    [token, user]
+    [token, user],
   );
 
   const performAction = useCallback(
@@ -116,7 +110,7 @@ export const HomeScreen: React.FC = () => {
       }
       return true;
     },
-    [token, user]
+    [token, user],
   );
 
   const runAttendanceAction = useCallback(
@@ -138,7 +132,7 @@ export const HomeScreen: React.FC = () => {
         if (mode === "manual") {
           Alert.alert(
             action === "enter" ? "入室に失敗しました" : "退室に失敗しました",
-            "再度お試しください。"
+            "再度お試しください。",
           );
         }
         return false;
@@ -149,7 +143,7 @@ export const HomeScreen: React.FC = () => {
         }
       }
     },
-    [fetchData, notifyStatus, pendingAction, performAction, user]
+    [fetchData, notifyStatus, pendingAction, performAction, user],
   );
 
   const evaluateAutoAttendance = useCallback(async () => {
@@ -159,10 +153,7 @@ export const HomeScreen: React.FC = () => {
 
     const officeLocation = getOfficeLocation(user.office);
     if (!officeLocation) {
-      setLastDistanceMeters(null);
-      setLocationMessage(
-        `${user.office.name} はまだ自動入退室の対象外です。`
-      );
+      setLocationMessage(`${user.office.name} はまだ自動入退室の対象外です。`);
       return;
     }
 
@@ -176,9 +167,8 @@ export const HomeScreen: React.FC = () => {
       }
 
       if (status !== "granted") {
-        setLastDistanceMeters(null);
         setLocationMessage(
-          "位置情報が未許可のため、自動入退室は停止しています。"
+          "位置情報が未許可のため、自動入退室は停止しています。",
         );
         return;
       }
@@ -192,10 +182,8 @@ export const HomeScreen: React.FC = () => {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         },
-        officeLocation
+        officeLocation,
       );
-
-      setLastDistanceMeters(distanceMeters);
 
       if (!entered && shouldAutoEnter(distanceMeters, officeLocation)) {
         setLocationMessage("オフィス到着を検知しました。自動で入室します。");
@@ -203,11 +191,11 @@ export const HomeScreen: React.FC = () => {
         setLocationMessage(
           succeeded
             ? `オフィスから約${Math.round(
-                distanceMeters
+                distanceMeters,
               )}mです。自動で入室しました。`
             : `オフィスから約${Math.round(
-                distanceMeters
-              )}mですが、自動入室に失敗しました。`
+                distanceMeters,
+              )}mですが、自動入室に失敗しました。`,
         );
         return;
       }
@@ -218,11 +206,11 @@ export const HomeScreen: React.FC = () => {
         setLocationMessage(
           succeeded
             ? `オフィスから約${Math.round(
-                distanceMeters
+                distanceMeters,
               )}m離れたため、自動で退室しました。`
             : `オフィスから約${Math.round(
-                distanceMeters
-              )}mですが、自動退室に失敗しました。`
+                distanceMeters,
+              )}mですが、自動退室に失敗しました。`,
         );
         return;
       }
@@ -230,15 +218,14 @@ export const HomeScreen: React.FC = () => {
       setLocationMessage(
         entered
           ? `オフィスから約${Math.round(
-              distanceMeters
+              distanceMeters,
             )}mです。十分に離れると自動退室します。`
           : `オフィスから約${Math.round(
-              distanceMeters
-            )}mです。圏内に入ると自動入室します。`
+              distanceMeters,
+            )}mです。圏内に入ると自動入室します。`,
       );
     } catch (error) {
       console.error("Failed to evaluate auto attendance", error);
-      setLastDistanceMeters(null);
       setLocationMessage("位置情報の取得に失敗しました。");
     }
   }, [entered, pendingAction, runAttendanceAction, token, user]);
@@ -246,7 +233,7 @@ export const HomeScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       void fetchData();
-    }, [fetchData])
+    }, [fetchData]),
   );
 
   useFocusEffect(
@@ -260,7 +247,7 @@ export const HomeScreen: React.FC = () => {
       return () => {
         clearInterval(intervalId);
       };
-    }, [evaluateAutoAttendance])
+    }, [evaluateAutoAttendance]),
   );
 
   useEffect(() => {
@@ -269,32 +256,27 @@ export const HomeScreen: React.FC = () => {
 
     const setup = async () => {
       const result = await ensureBackgroundAttendanceMonitoring(token, user);
-      if (result.started) {
-        setBackgroundMonitoringMessage(
-          "バックグラウンド監視が有効です。アプリを閉じても入退室を判定します。"
-        );
-        return;
-      }
+      if (result.started) return;
 
       switch (result.reason) {
         case "background-denied":
-          setBackgroundMonitoringMessage(
-            "バックグラウンド位置情報が未許可のため、アプリ表示中のみ自動判定します。"
+          setLocationMessage(
+            "バックグラウンド位置情報が未許可のため、アプリ表示中のみ自動判定します。",
           );
           break;
         case "foreground-denied":
-          setBackgroundMonitoringMessage(
-            "位置情報が未許可のため、バックグラウンド監視を開始できません。"
+          setLocationMessage(
+            "位置情報が未許可のため、バックグラウンド監視を開始できません。",
           );
           break;
         case "task-manager-unavailable":
-          setBackgroundMonitoringMessage(
-            "この実行環境ではバックグラウンド監視を利用できません。"
+          setLocationMessage(
+            "この実行環境ではバックグラウンド監視を利用できません。",
           );
           break;
         case "unsupported-office":
-          setBackgroundMonitoringMessage(
-            "このオフィスはまだバックグラウンド監視の対象外です。"
+          setLocationMessage(
+            "このオフィスはまだバックグラウンド監視の対象外です。",
           );
           break;
       }
@@ -305,10 +287,8 @@ export const HomeScreen: React.FC = () => {
 
   useEffect(() => {
     if (!user?.office) return;
-    if (!getOfficeLocation(user.office)) {
-      setLastDistanceMeters(null);
+    if (!getOfficeLocation(user.office))
       setLocationMessage(`${user.office.name} はまだ自動入退室の対象外です。`);
-    }
   }, [user?.office]);
 
   const handleEnter = useCallback(async () => {
@@ -338,7 +318,7 @@ export const HomeScreen: React.FC = () => {
         Alert.alert("保存に失敗しました", "メモの保存に失敗しました。");
       }
     },
-    [fetchData, notifyStatus, setUserState, token, user]
+    [fetchData, notifyStatus, setUserState, token, user],
   );
 
   const handleLogout = useCallback(async () => {
@@ -368,7 +348,7 @@ export const HomeScreen: React.FC = () => {
             }
           },
         },
-      ]
+      ],
     );
   }, [signOut, user]);
 
@@ -379,7 +359,7 @@ export const HomeScreen: React.FC = () => {
   const renderSymbol = (
     iosName: SymbolName,
     fallbackName: React.ComponentProps<typeof Feather>["name"],
-    color: string
+    color: string,
   ) => {
     if (Platform.OS === "ios") {
       return (
@@ -418,14 +398,6 @@ export const HomeScreen: React.FC = () => {
 
       <StatusTitle entered={entered} />
       <Text style={styles.locationStatus}>{locationMessage}</Text>
-      {lastDistanceMeters !== null ? (
-        <Text style={styles.locationMeta}>
-          判定距離: 約{Math.round(lastDistanceMeters)}m
-        </Text>
-      ) : null}
-      <Text style={styles.backgroundMonitoringStatus}>
-        {backgroundMonitoringMessage}
-      </Text>
       <EnterExitButtons
         entered={entered}
         onEnter={handleEnter}
