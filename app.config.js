@@ -27,6 +27,10 @@ const config = {
       ITSAppUsesNonExemptEncryption: false,
       NSFaceIDUsageDescription:
         "Face IDを使用してアカウントに安全にログインします。",
+      NSLocationAlwaysAndWhenInUseUsageDescription:
+        "アプリを閉じていてもオフィスへの入退室を検知し、自動で入退室を記録するために位置情報を利用します。",
+      NSLocationWhenInUseUsageDescription:
+        "オフィス付近への入退室を検知して、自動で入退室を記録するために位置情報を利用します。",
       NSPhotoLibraryUsageDescription:
         "プロフィール画像を設定するために写真ライブラリにアクセスします。",
     },
@@ -56,12 +60,10 @@ const config = {
     [
       "expo-location",
       {
-        locationAlwaysAndWhenInUsePermission:
-          "オフィスの近くに到着した際に入退室の通知を送るために位置情報を使用します。",
-        locationAlwaysPermission:
-          "オフィスの近くに到着した際に入退室の通知を送るために、常に位置情報を使用します。",
         locationWhenInUsePermission:
-          "オフィスの近くに到着した際に入退室の通知を送るために位置情報を使用します。",
+          "オフィス付近への入退室を検知して、自動で入退室を記録するために位置情報を利用します。",
+        locationAlwaysAndWhenInUsePermission:
+          "アプリを閉じていてもオフィスへの入退室を検知し、自動で入退室を記録するために位置情報を利用します。",
         isIosBackgroundLocationEnabled: true,
         isAndroidBackgroundLocationEnabled: true,
       },

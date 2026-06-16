@@ -42,6 +42,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setStatus("checking");
     const stored = await tokenStorage.get();
     if (!stored) {
+      try {
+        await stopBackgroundAttendanceMonitoring();
+      } catch (e) {
+        console.warn("Failed to stop background monitoring during logout", e);
+      }
       setToken(null);
       setUser(null);
       setStatus("signedOut");
@@ -87,6 +92,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const api = createUsersApi(stored);
       const profile = await api.usersMeGet();
+
+      // 📌 修正: 位置情報の同期エラーでセッション復元を失敗させない
+      try {
+        await syncBackgroundAttendanceSnapshot(stored, profile.user);
+      } catch (error) {
+        console.warn(
+          "Background attendance sync skipped during loadSession",
+          error,
+        );
+      }
+
       setToken(stored);
       setUser(profile.user);
       setStatus("signedIn");
@@ -97,7 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(null);
       setStatus("signedOut");
     }
-  }, []);
+  }, [shouldRequireBiometric]);
 
   useEffect(() => {
     void loadSession();
@@ -122,11 +138,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         tokenStorage.set(result.token),
         credentialStorage.set(payload),
       ]);
+
+      // 📌 修正: 位置情報の同期エラーでログイン自体を失敗させない
+      try {
+        await syncBackgroundAttendanceSnapshot(result.token, result.user);
+      } catch (error) {
+        console.warn("Background attendance sync skipped during signIn", error);
+      }
+
       setToken(result.token);
       setUser(result.user);
       setStatus("signedIn");
     },
-    []
+    [],
   );
 
   const signOut = useCallback(
@@ -136,11 +160,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         tasks.push(credentialStorage.remove());
       }
       await Promise.all(tasks);
+
+      try {
+        await stopBackgroundAttendanceMonitoring();
+      } catch (e) {
+        console.warn("Failed to stop background monitoring during signOut", e);
+      }
+
       setToken(null);
       setUser(null);
       setStatus("signedOut");
     },
-    []
+    [],
   );
 
   const refreshUser = useCallback(async () => {
@@ -148,6 +179,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const api = createUsersApi(token);
       const profile = await api.usersMeGet();
+
+      // 📌 修正: 位置情報の同期エラーでリフレッシュを失敗させない
+      try {
+        await syncBackgroundAttendanceSnapshot(token, profile.user);
+      } catch (error) {
+        console.warn(
+          "Background attendance sync skipped during refreshUser",
+          error,
+        );
+      }
+
       setUser(profile.user);
       setStatus("signedIn");
     } catch (error) {
@@ -156,14 +198,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [signOut, token]);
 
-  const setUserState = useCallback((next: UserSafe | null) => {
-    setUser(next);
-    setStatus(next ? "signedIn" : "signedOut");
-  }, []);
+  const setUserState = useCallback(
+    (next: UserSafe | null) => {
+      if (token && next) {
+        // 📌 修正: 位置情報の同期エラーでState更新を失敗させない
+        try {
+          void syncBackgroundAttendanceSnapshot(token, next);
+        } catch (error) {
+          console.warn(
+            "Background attendance sync skipped during setUserState",
+            error,
+          );
+        }
+      }
+      setUser(next);
+      setStatus(next ? "signedIn" : "signedOut");
+    },
+    [token],
+  );
 
   const value = useMemo<AuthContextValue>(
     () => ({ status, user, token, signIn, signOut, refreshUser, setUserState }),
-    [refreshUser, signIn, signOut, status, token, user, setUserState]
+    [refreshUser, signIn, signOut, status, token, user, setUserState],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

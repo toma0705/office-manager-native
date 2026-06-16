@@ -1,9 +1,10 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   Alert,
   Platform,
   StyleSheet,
   Text,
+  Linking,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -32,11 +33,14 @@ export const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<"enter" | "exit" | null>(
-    null
+    null,
   );
+  const [locationMessage, setLocationMessage] =
+    useState("位置情報を確認しています...");
 
   const entered = Boolean(user?.entered);
 
+  // データの取得
   const fetchData = useCallback(async () => {
     if (!token) return;
     setRefreshing(true);
@@ -50,19 +54,14 @@ export const HomeScreen: React.FC = () => {
       Alert.alert(
         "エラー",
         "ユーザー情報の取得に失敗しました。ログインし直してください。",
-        [{ text: "OK", onPress: () => void signOut() }]
+        [{ text: "OK", onPress: () => void signOut() }],
       );
     } finally {
       setRefreshing(false);
     }
   }, [setUserState, signOut, token]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void fetchData();
-    }, [fetchData])
-  );
-
+  // 通知の送信
   const notifyStatus = useCallback(
     async (status: "入室" | "退室" | "メモを追加", note?: string) => {
       if (!token || !user) return;
@@ -80,57 +79,86 @@ export const HomeScreen: React.FC = () => {
         console.warn("Failed to send notification", error);
       }
     },
-    [token, user]
+    [token, user],
   );
 
-  const performAction = useCallback(
-    async (path: string) => {
-      if (!token || !user) return false;
-      const response = await fetch(withApiPath(path), {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "API request failed");
+  // 打刻入退室リクエストの実行 (手動・自動共通化)
+  const runAttendanceAction = useCallback(
+    async (action: "enter" | "exit") => {
+      if (!user || pendingAction) return false;
+
+      setPendingAction(action);
+      try {
+        const response = await fetch(
+          withApiPath(`/users/${user.id}/${action}`),
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        if (!response.ok) throw new Error("API request failed");
+
+        await notifyStatus(action === "enter" ? "入室" : "退室");
+        await fetchData();
+        return true;
+      } catch (error) {
+        console.error(`Failed to ${action}`, error);
+        Alert.alert(
+          action === "enter" ? "入室に失敗しました" : "退室に失敗しました",
+          "再度お試しください。",
+        );
+        return false;
+      } finally {
+        setPendingAction(null);
       }
-      return true;
     },
-    [token, user]
+    [fetchData, notifyStatus, pendingAction, token, user],
   );
 
-  const handleEnter = useCallback(async () => {
-    if (!user || pendingAction) return;
-    setPendingAction("enter");
-    try {
-      await performAction(`/users/${user.id}/enter`);
-      await notifyStatus("入室");
-      await fetchData();
-    } catch (error) {
-      console.error("Failed to enter", error);
-      Alert.alert("入室に失敗しました", "再度お試しください。");
-    } finally {
-      setPendingAction(null);
-    }
-  }, [fetchData, notifyStatus, pendingAction, performAction, user]);
+  // 5. 画面に表示する位置情報ステータスの確認（5秒おきに裏で回す必要はなくなりました）
+  const evaluateAutoAttendance = useCallback(async () => {
+    if (!user || !token) return;
 
-  const handleExit = useCallback(async () => {
-    if (!user || pendingAction) return;
-    setPendingAction("exit");
     try {
-      await performAction(`/users/${user.id}/exit`);
-      await notifyStatus("退室");
-      await fetchData();
-    } catch (error) {
-      console.error("Failed to exit", error);
-      Alert.alert("退室に失敗しました", "再度お試しください。");
-    } finally {
-      setPendingAction(null);
-    }
-  }, [fetchData, notifyStatus, pendingAction, performAction, user]);
+      // 現在の「常に許可（Background）」のステータスだけを確認
+      const { status: bgStatus } =
+        await Location.getBackgroundPermissionsAsync();
 
+      if (bgStatus !== "granted") {
+        setLocationMessage(
+          "自動入退室には位置情報の利用を「常に許可」にする必要があります。設定 > プライバシーとセキュリティ > 位置情報サービス > 入退室管理 から許可してください。[設定を開く]",
+        );
+        return;
+      }
+
+      // 「常に許可」されているなら、案内テキストを出す
+      setLocationMessage(
+        entered
+          ? "バックグラウンドでの自動入退室が有効です。オフィスから離れると自動退室します。"
+          : "バックグラウンドでの自動入退室が有効です。オフィスに近づくと自動入室します。",
+      );
+    } catch (error) {
+      console.error("Failed to evaluate auto attendance", error);
+      setLocationMessage("位置情報の状態確認に失敗しました。");
+    }
+  }, [entered, token, user]);
+
+  // 💡 画面が開いた時に「1回だけ」状態を確認してメッセージを更新する
+  useFocusEffect(
+    useCallback(() => {
+      void evaluateAutoAttendance();
+    }, [evaluateAutoAttendance]),
+  );
+
+  // ライフサイクルイベントの監視
+  useFocusEffect(
+    useCallback(() => {
+      void fetchData(); // サーバーから入室中ユーザーなどの最新データを取得
+      void evaluateAutoAttendance(); // 位置情報の権限をチェックしてメッセージを更新
+    }, [fetchData, evaluateAutoAttendance]),
+  );
+
+  // メモの保存・ログアウト・アカウント削除
   const handleSaveNote = useCallback(
     async (userId: number, note: string) => {
       if (!token) return;
@@ -150,12 +178,8 @@ export const HomeScreen: React.FC = () => {
         Alert.alert("保存に失敗しました", "メモの保存に失敗しました。");
       }
     },
-    [fetchData, notifyStatus, setUserState, token, user]
+    [fetchData, notifyStatus, setUserState, token, user],
   );
-
-  const handleLogout = useCallback(async () => {
-    await signOut();
-  }, [signOut]);
 
   const handleDeleteAccount = useCallback(async () => {
     if (!user) return;
@@ -180,18 +204,17 @@ export const HomeScreen: React.FC = () => {
             }
           },
         },
-      ]
+      ],
     );
   }, [signOut, user]);
 
-  const enteredCount = useMemo(() => enteredUsers.length, [enteredUsers]);
+  const enteredCount = React.useMemo(() => enteredUsers.length, [enteredUsers]);
   const refreshDisabled = refreshing || pendingAction !== null;
-  type SymbolName = React.ComponentProps<typeof SymbolView>["name"];
 
   const renderSymbol = (
-    iosName: SymbolName,
+    iosName: React.ComponentProps<typeof SymbolView>["name"],
     fallbackName: React.ComponentProps<typeof Feather>["name"],
-    color: string
+    color: string,
   ) => {
     if (Platform.OS === "ios") {
       return (
@@ -214,6 +237,32 @@ export const HomeScreen: React.FC = () => {
     );
   }
 
+  const renderLocationStatus = () => {
+    const linkTrigger = "[設定を開く]";
+
+    if (locationMessage.includes(linkTrigger)) {
+      const parts = locationMessage.split(linkTrigger);
+      return (
+        <Text style={styles.locationStatus}>
+          {parts[0]}
+          <Text
+            style={styles.locationLink}
+            onPress={() => {
+              Linking.openSettings().catch(() => {
+                console.warn("設定画面を開けませんでした");
+              });
+            }}
+          >
+            設定を開く
+          </Text>
+          {parts[1]}
+        </Text>
+      );
+    }
+
+    return <Text style={styles.locationStatus}>{locationMessage}</Text>;
+  };
+
   const listHeader = (
     <View style={styles.headerContainer}>
       <View style={styles.topControls}>
@@ -229,10 +278,19 @@ export const HomeScreen: React.FC = () => {
       </View>
 
       <StatusTitle entered={entered} />
+
+      {renderLocationStatus()}
+
       <EnterExitButtons
         entered={entered}
-        onEnter={handleEnter}
-        onExit={handleExit}
+        onEnter={useCallback(
+          () => void runAttendanceAction("enter"),
+          [runAttendanceAction],
+        )}
+        onExit={useCallback(
+          () => void runAttendanceAction("exit"),
+          [runAttendanceAction],
+        )}
         disabled={pendingAction !== null}
       />
 
@@ -262,7 +320,7 @@ export const HomeScreen: React.FC = () => {
         onRefresh={() => void fetchData()}
         refreshDisabled={refreshDisabled}
         refreshing={refreshing}
-        onLogout={handleLogout}
+        onLogout={useCallback(() => void signOut(), [signOut])}
         onDelete={handleDeleteAccount}
       />
     </View>
@@ -270,28 +328,32 @@ export const HomeScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  root: { flex: 1, backgroundColor: colors.background },
   listContent: {
     paddingHorizontal: 24,
     paddingTop: 32,
     paddingBottom: 32,
     gap: 24,
   },
-  headerContainer: {
-    gap: 24,
-  },
+  headerContainer: { gap: 24 },
   topControls: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 24,
   },
-  actionSymbol: {
-    width: 20,
-    height: 20,
+  actionSymbol: { width: 20, height: 20 },
+  locationStatus: {
+    marginTop: -8,
+    textAlign: "center",
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.text,
+  },
+  locationLink: {
+    color: "#007AFF",
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
   sectionHeader: {
     alignSelf: "center",
@@ -308,12 +370,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: "center",
   },
-  sectionSubtitle: {
-    marginTop: 4,
-  },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  sectionSubtitle: { marginTop: 4 },
+  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
 });

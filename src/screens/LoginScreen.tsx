@@ -9,6 +9,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import * as Location from "expo-location";
 import Constants from "expo-constants";
 import * as LocalAuthentication from "expo-local-authentication";
 import { SymbolView } from "expo-symbols";
@@ -90,7 +91,7 @@ export const LoginScreen: React.FC = () => {
     if (!savedCredentials) return;
     if (!shouldRequireBiometric) {
       setBiometricError(
-        "Expo Go では顔認証を利用できません。通常ログインをご利用ください。"
+        "Expo Go では顔認証を利用できません。通常ログインをご利用ください。",
       );
       setBiometricVisible(false);
       return;
@@ -103,7 +104,7 @@ export const LoginScreen: React.FC = () => {
     if (!savedCredentials || biometricLoading) return;
     if (!shouldRequireBiometric) {
       setBiometricError(
-        "Expo Go では顔認証を利用できません。通常ログインをご利用ください。"
+        "Expo Go では顔認証を利用できません。通常ログインをご利用ください。",
       );
       setBiometricVisible(false);
       return;
@@ -136,7 +137,7 @@ export const LoginScreen: React.FC = () => {
         warningMessage.includes("NSFaceIDUsageDescription")
       ) {
         setBiometricError(
-          "Face ID を利用するには iOS の設定でこのアプリにFace ID利用許可(NSFaceIDUsageDescription)を付与する必要があります。Expo Go ではご利用いただけません。"
+          "Face ID を利用するには iOS の設定でこのアプリにFace ID利用許可(NSFaceIDUsageDescription)を付与する必要があります。Expo Go ではご利用いただけません。",
         );
         await credentialStorage.remove();
         setSavedCredentials(null);
@@ -163,7 +164,7 @@ export const LoginScreen: React.FC = () => {
       console.error("Failed to login via biometrics", error);
       console.error(error instanceof Error ? error.stack : null);
       setBiometricError(
-        "顔認証でのログインに失敗しました。手動でログインしてください。"
+        "顔認証でのログインに失敗しました。手動でログインしてください。",
       );
       await credentialStorage.remove();
       setSavedCredentials(null);
@@ -294,7 +295,7 @@ export const LoginScreen: React.FC = () => {
                 <Text style={styles.biometricTitle}>サインイン</Text>
                 {savedCredentials ? (
                   <Text style={styles.biometricDescription}>
-                    {`"${savedCredentials.email}" のパスワードを使用してログインしますか？`}
+                    {`"${savedCredentials.email}" のパスキーを使用してログインしますか？`}
                   </Text>
                 ) : null}
                 {biometricError ? (
@@ -312,7 +313,7 @@ export const LoginScreen: React.FC = () => {
                     <ActivityIndicator color={colors.white} />
                   ) : (
                     <Text style={styles.biometricPrimaryLabel}>
-                      パスワードを入力
+                      Face IDでログイン
                     </Text>
                   )}
                 </Pressable>
