@@ -24,6 +24,7 @@ import type { RootStackParamList } from "@/navigation/AppNavigator";
 import { colors } from "@/theme/colors";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
+import * as Location from "expo-location";
 
 export const HomeScreen: React.FC = () => {
   const navigation =
@@ -115,12 +116,12 @@ export const HomeScreen: React.FC = () => {
     [fetchData, notifyStatus, pendingAction, token, user],
   );
 
-  // 5. 画面に表示する位置情報ステータスの確認（5秒おきに裏で回す必要はなくなりました）
+  // 画面に表示する位置情報ステータスの確認
   const evaluateAutoAttendance = useCallback(async () => {
     if (!user || !token) return;
 
     try {
-      // 現在の「常に許可（Background）」のステータスだけを確認
+      // 現在の「常に許可（Background）」のステータスを確認
       const { status: bgStatus } =
         await Location.getBackgroundPermissionsAsync();
 
@@ -143,18 +144,11 @@ export const HomeScreen: React.FC = () => {
     }
   }, [entered, token, user]);
 
-  // 💡 画面が開いた時に「1回だけ」状態を確認してメッセージを更新する
+  // ✨ 修正：重複していたuseFocusEffectを1つに統合
   useFocusEffect(
     useCallback(() => {
-      void evaluateAutoAttendance();
-    }, [evaluateAutoAttendance]),
-  );
-
-  // ライフサイクルイベントの監視
-  useFocusEffect(
-    useCallback(() => {
-      void fetchData(); // サーバーから入室中ユーザーなどの最新データを取得
-      void evaluateAutoAttendance(); // 位置情報の権限をチェックしてメッセージを更新
+      void fetchData(); // サーバーから最新データを取得
+      void evaluateAutoAttendance(); // 位置情報の権限をチェック
     }, [fetchData, evaluateAutoAttendance]),
   );
 

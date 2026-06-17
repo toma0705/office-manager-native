@@ -105,11 +105,9 @@ export const syncBackgroundAttendanceSnapshot = async (
 
   await backgroundAttendanceStorage.set(snapshot);
 
-  if (await Location.hasStartedGeofencingAsync(BACKGROUND_GEOFENCING_TASK)) {
-    await Location.startGeofencingAsync(BACKGROUND_GEOFENCING_TASK, [
-      toRegion(snapshot),
-    ]);
-  }
+  await Location.startGeofencingAsync(BACKGROUND_GEOFENCING_TASK, [
+    toRegion(snapshot),
+  ]);
 };
 
 export const stopBackgroundAttendanceMonitoring = async () => {

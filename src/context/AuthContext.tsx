@@ -15,6 +15,10 @@ import React, {
 import { createUsersApi } from "@/api/client";
 import { credentialStorage } from "@/storage/credentialStorage";
 import { tokenStorage } from "@/storage/tokenStorage";
+import {
+  syncBackgroundAttendanceSnapshot,
+  stopBackgroundAttendanceMonitoring,
+} from "@/services/backgroundGeofencing";
 
 type AuthStatus = "checking" | "signedOut" | "signedIn";
 
