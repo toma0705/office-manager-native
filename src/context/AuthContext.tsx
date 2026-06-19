@@ -243,8 +243,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const setUserState = useCallback(
     (next: UserSafe | null) => {
-      if (token && next) {
-        // 📌 修正: 状態変更時も権限を確認してから同期する
+      // 💡 修正: 前の状態と今回の状態で「entered」フラグが変わったかどうかをチェック
+      const isStatusChanged = user?.entered !== next?.entered;
+
+      if (token && next && isStatusChanged) {
+        // 👈 isStatusChanged を条件に追加！
+        // 📌 修正: 状態が【本当に変化した時だけ】権限を確認して同期する
         void requestLocationPermissions().then((hasPermission) => {
           if (hasPermission) {
             try {
@@ -261,7 +265,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(next);
       setStatus(next ? "signedIn" : "signedOut");
     },
-    [token],
+    [token, user?.entered], // 👈 依存配列に user?.entered を追加
   );
 
   const value = useMemo<AuthContextValue>(

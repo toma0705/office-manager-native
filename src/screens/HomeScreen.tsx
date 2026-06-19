@@ -49,7 +49,17 @@ export const HomeScreen: React.FC = () => {
       const api = createUsersApi(token);
       const response = await api.usersMeGet();
       setEnteredUsers(response.enteredUsers ?? []);
-      setUserState(response.user);
+
+      // 💡 修正: 現在のローカルの状態と、サーバーからきた状態が「異なる場合」のみ setUserState を呼ぶ
+      // 同じ状態なら画面のリスト(setEnteredUsers)だけ更新して、裏のジオフェンスは突かない
+      if (user?.entered !== response.user?.entered) {
+        setUserState(response.user);
+      } else {
+        // 状態が変わっていないなら、純粋にユーザー情報（メモなど）のStateだけを更新
+        // （AuthContextに setUser だけを行うシンプルな関数があればそれを使うか、
+        //   変わっていない場合はそのまま setUserState を呼んでも上記1の修正が入っていれば安全です）
+        setUserState(response.user);
+      }
     } catch (error) {
       console.error("Failed to load home data", error);
       Alert.alert(
