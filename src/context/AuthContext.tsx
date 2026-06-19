@@ -19,6 +19,7 @@ import {
   syncBackgroundAttendanceSnapshot,
   stopBackgroundAttendanceMonitoring,
 } from "@/services/backgroundGeofencing";
+import * as Location from "expo-location"; // 👈 インポート完了
 
 type AuthStatus = "checking" | "signedOut" | "signedIn";
 
@@ -33,6 +34,32 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+// 💡 バックグラウンド位置情報の権限を確認・要求するヘルパー関数
+const requestLocationPermissions = async (): Promise<boolean> => {
+  try {
+    // 1. まずはフォアグラウンド（アプリ起動中）の権限を確認・要求
+    const { status: foregroundStatus } =
+      await Location.requestForegroundPermissionsAsync();
+    if (foregroundStatus !== "granted") {
+      console.warn("【権限】フォアグラウンド位置情報の権限が拒否されました");
+      return false;
+    }
+
+    // 2. 次にバックグラウンド（アプリが閉じている間）の権限を確認・要求
+    const { status: backgroundStatus } =
+      await Location.requestBackgroundPermissionsAsync();
+    if (backgroundStatus !== "granted") {
+      console.warn("【権限】バックグラウンド位置情報の権限が拒否されました");
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("【権限】位置情報の権限要求中にエラーが発生しました:", error);
+    return false;
+  }
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -97,14 +124,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const api = createUsersApi(stored);
       const profile = await api.usersMeGet();
 
-      // 📌 修正: 位置情報の同期エラーでセッション復元を失敗させない
-      try {
-        await syncBackgroundAttendanceSnapshot(stored, profile.user);
-      } catch (error) {
-        console.warn(
-          "Background attendance sync skipped during loadSession",
-          error,
-        );
+      // 📌 修正: 権限をチェックしてから同期。エラーや権限不足でもセッション復元は失敗させない
+      const hasPermission = await requestLocationPermissions();
+      if (hasPermission) {
+        try {
+          await syncBackgroundAttendanceSnapshot(stored, profile.user);
+        } catch (error) {
+          console.warn(
+            "Background attendance sync skipped during loadSession",
+            error,
+          );
+        }
       }
 
       setToken(stored);
@@ -143,11 +173,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         credentialStorage.set(payload),
       ]);
 
-      // 📌 修正: 位置情報の同期エラーでログイン自体を失敗させない
-      try {
-        await syncBackgroundAttendanceSnapshot(result.token, result.user);
-      } catch (error) {
-        console.warn("Background attendance sync skipped during signIn", error);
+      // 📌 修正: ログイン成功時に位置情報の権限を要求し、OKなら同期を開始する
+      const hasPermission = await requestLocationPermissions();
+      if (hasPermission) {
+        try {
+          await syncBackgroundAttendanceSnapshot(result.token, result.user);
+        } catch (error) {
+          console.warn(
+            "Background attendance sync skipped during signIn",
+            error,
+          );
+        }
       }
 
       setToken(result.token);
@@ -184,14 +220,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const api = createUsersApi(token);
       const profile = await api.usersMeGet();
 
-      // 📌 修正: 位置情報の同期エラーでリフレッシュを失敗させない
-      try {
-        await syncBackgroundAttendanceSnapshot(token, profile.user);
-      } catch (error) {
-        console.warn(
-          "Background attendance sync skipped during refreshUser",
-          error,
-        );
+      // 📌 修正: リフレッシュ時も権限を確認してから同期する
+      const hasPermission = await requestLocationPermissions();
+      if (hasPermission) {
+        try {
+          await syncBackgroundAttendanceSnapshot(token, profile.user);
+        } catch (error) {
+          console.warn(
+            "Background attendance sync skipped during refreshUser",
+            error,
+          );
+        }
       }
 
       setUser(profile.user);
@@ -205,15 +244,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const setUserState = useCallback(
     (next: UserSafe | null) => {
       if (token && next) {
-        // 📌 修正: 位置情報の同期エラーでState更新を失敗させない
-        try {
-          void syncBackgroundAttendanceSnapshot(token, next);
-        } catch (error) {
-          console.warn(
-            "Background attendance sync skipped during setUserState",
-            error,
-          );
-        }
+        // 📌 修正: 状態変更時も権限を確認してから同期する
+        void requestLocationPermissions().then((hasPermission) => {
+          if (hasPermission) {
+            try {
+              void syncBackgroundAttendanceSnapshot(token, next);
+            } catch (error) {
+              console.warn(
+                "Background attendance sync skipped during setUserState",
+                error,
+              );
+            }
+          }
+        });
       }
       setUser(next);
       setStatus(next ? "signedIn" : "signedOut");
