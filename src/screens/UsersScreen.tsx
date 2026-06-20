@@ -2,7 +2,10 @@ import React, { useCallback, useMemo, useState } from "react";
 import { FlatList, Platform, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { Office, UserListItem } from "@office-manager/api-client";
+import type {
+  Office,
+  UserListItem,
+} from "@office-manager/api-client/dist/esm/index";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { OptionCardGroup } from "@/components/ui/OptionCardGroup";
@@ -36,7 +39,7 @@ export const UsersScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       void load();
-    }, [load])
+    }, [load]),
   );
 
   const filteredUsers = useMemo(() => {

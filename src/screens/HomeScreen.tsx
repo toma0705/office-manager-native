@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { EnteredUser } from "@office-manager/api-client";
+import type { EnteredUser } from "@office-manager/api-client/dist/esm/index";
 import { StatusTitle } from "@/components/home/StatusTitle";
 import { EnterExitButtons } from "@/components/home/EnterExitButtons";
 import { EnteredUsersList } from "@/components/home/EnteredUsersList";

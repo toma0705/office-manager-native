@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { LinkButton } from "@/components/ui/LinkButton";
 import { useAuth } from "@/hooks/useAuth";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
-import type { UsersLoginPostRequest } from "@office-manager/api-client";
+import type { UsersLoginPostRequest } from "@office-manager/api-client/dist/esm/index";
 import { colors } from "@/theme/colors";
 import { credentialStorage } from "@/storage/credentialStorage";
 

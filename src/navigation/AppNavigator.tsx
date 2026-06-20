@@ -64,16 +64,6 @@ export const AppNavigator: React.FC = () => {
     return () => subscription.remove();
   }, []);
 
-  // useEffect(() => {
-  //   if (status === "signedIn") {
-  //     // TODO: オフィスの座標を動的に取得する
-  //     // 現在は仮で岡山大学付近 (34.6850, 133.9190)
-  //     startGeofencing(34.685, 133.919).catch(console.error);
-  //   } else {
-  //     stopGeofencing().catch(console.error);
-  //   }
-  // }, [status]);
-
   return (
     <NavigationContainer>
       {status === "checking" ? (

@@ -1,12 +1,12 @@
 import * as SecureStore from "expo-secure-store";
-import type { UsersLoginPostRequest } from "@office-manager/api-client";
+import type { UsersLoginPostRequest } from "@office-manager/api-client/dist/esm/index";
 
 type StoredCredentials = UsersLoginPostRequest;
 
 const CREDENTIAL_KEY = "office_manager_credentials";
 
 const sanitizeCredentials = (
-  credentials: Partial<UsersLoginPostRequest> | null | undefined
+  credentials: Partial<UsersLoginPostRequest> | null | undefined,
 ): StoredCredentials | null => {
   if (!credentials) return null;
 
@@ -68,7 +68,7 @@ export const credentialStorage = {
         JSON.stringify(sanitized),
         {
           keychainAccessible: SecureStore.WHEN_UNLOCKED,
-        }
+        },
       );
     } catch (error) {
       console.warn("Failed to persist login credentials", error);

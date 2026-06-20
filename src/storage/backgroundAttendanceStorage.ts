@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { UserSafe } from "@office-manager/api-client";
+import type { UserSafe } from "@office-manager/api-client/dist/esm/index";
 
 // AsyncStorage で使う一意のキー
 const BACKGROUND_ATTENDANCE_KEY = "office-manager/background-attendance";
@@ -13,7 +13,7 @@ export type BackgroundAttendanceSnapshot = {
   latitude: number;
   longitude: number;
   radiusMeters: number;
-  entered: boolean; // 現在オフィスに入っているかどうかの状態
+  entered: boolean;
 };
 
 export const backgroundAttendanceStorage = {
@@ -73,15 +73,14 @@ export const createBackgroundAttendanceSnapshot = (
   token: string,
   user: UserSafe,
 ): BackgroundAttendanceSnapshot | null => {
-  // 💡 型エラーを回避しつつ、指定された座標データを直接叩き込む
   return {
     token,
     userId: user.id,
     userName: user.name,
     officeCode: (user.office as any)?.code || "OKAYAMA",
-    latitude: 34.697149, // 👈 直接指定
-    longitude: 133.927746, // 👈 直接指定
-    radiusMeters: 2, // 👈 直接指定 (半径2m)
-    entered: false, // 初期値は未入室
+    latitude: user.office?.latitude,
+    longitude: user.office?.longitude,
+    radiusMeters: user.office?.radiusMeters,
+    entered: Boolean(user.entered),
   };
 };

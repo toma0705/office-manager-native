@@ -1,4 +1,4 @@
-import type { Office } from "@office-manager/api-client";
+import type { Office } from "@office-manager/api-client/dist/esm/index";
 
 export const DEFAULT_OFFICE_PRIORITY_KEYWORDS = ["東京", "岡山"] as const;
 
@@ -10,7 +10,7 @@ type Options = {
 
 const resolvePriority = (
   office: Office,
-  priorityKeywords: readonly string[]
+  priorityKeywords: readonly string[],
 ): number => {
   const name = office.name ?? "";
   const index = priorityKeywords.findIndex((keyword) => name.includes(keyword));
@@ -19,7 +19,7 @@ const resolvePriority = (
 
 export const sortOfficesByPriority = (
   offices: Office[],
-  { priorityKeywords = DEFAULT_OFFICE_PRIORITY_KEYWORDS }: Options = {}
+  { priorityKeywords = DEFAULT_OFFICE_PRIORITY_KEYWORDS }: Options = {},
 ): Office[] => {
   return offices.slice().sort((a, b) => {
     const priorityA = resolvePriority(a, priorityKeywords);

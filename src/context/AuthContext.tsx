@@ -1,7 +1,7 @@
 import {
   type UsersLoginPostRequest,
   type UserSafe,
-} from "@office-manager/api-client";
+} from "@office-manager/api-client/dist/esm/index";
 import Constants from "expo-constants";
 import * as LocalAuthentication from "expo-local-authentication";
 import React, {

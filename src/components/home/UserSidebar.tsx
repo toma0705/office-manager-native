@@ -1,5 +1,5 @@
 import React from "react";
-import type { UserSafe } from "@office-manager/api-client";
+import type { UserSafe } from "@office-manager/api-client/dist/esm/index";
 import {
   Modal,
   Platform,
@@ -42,7 +42,7 @@ export const UserSidebar: React.FC<Props> = ({
   const renderIcon = (
     iosName: SymbolName,
     fallbackName: React.ComponentProps<typeof Feather>["name"],
-    color: string
+    color: string,
   ) => {
     if (Platform.OS === "ios") {
       return (
@@ -84,7 +84,7 @@ export const UserSidebar: React.FC<Props> = ({
                 leftIcon={renderIcon(
                   "arrow.clockwise",
                   "refresh-cw",
-                  colors.primaryDark
+                  colors.primaryDark,
                 )}
                 fullWidth
               />
@@ -95,7 +95,7 @@ export const UserSidebar: React.FC<Props> = ({
                 leftIcon={renderIcon(
                   "rectangle.portrait.and.arrow.right",
                   "log-out",
-                  colors.primaryDark
+                  colors.primaryDark,
                 )}
                 fullWidth
               />

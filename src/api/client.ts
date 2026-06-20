@@ -4,7 +4,7 @@ import {
   NotificationsApi,
   OfficesApi,
   UsersApi,
-} from "@office-manager/api-client";
+} from "@office-manager/api-client/dist/esm/index";
 import { API_BASE_URL } from "@/constants/config";
 
 const createConfiguration = (token?: string) =>

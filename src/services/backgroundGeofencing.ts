@@ -1,4 +1,4 @@
-import type { UserSafe } from "@office-manager/api-client";
+import type { UserSafe } from "@office-manager/api-client/dist/esm/index";
 import * as Location from "expo-location";
 import { GeofencingEventType } from "expo-location";
 import type { LocationRegion } from "expo-location";

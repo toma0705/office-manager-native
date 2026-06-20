@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import type { EnteredUser, UserSafe } from "@office-manager/api-client";
+import type {
+  EnteredUser,
+  UserSafe,
+} from "@office-manager/api-client/dist/esm/index";
 import {
   FlatList,
   StyleSheet,

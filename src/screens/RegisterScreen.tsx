@@ -14,7 +14,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
-import type { Office } from "@office-manager/api-client";
+import type { Office } from "@office-manager/api-client/dist/esm/index";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -57,7 +57,7 @@ export const RegisterScreen: React.FC = () => {
 
   const sortedOffices = useMemo(
     () => sortOfficesByPriority(offices),
-    [offices]
+    [offices],
   );
 
   const handlePickIcon = useCallback(async () => {
@@ -72,7 +72,7 @@ export const RegisterScreen: React.FC = () => {
             text: "設定を開く",
             onPress: () => Linking.openSettings(),
           },
-        ]
+        ],
       );
       return;
     }
@@ -108,7 +108,7 @@ export const RegisterScreen: React.FC = () => {
     if (!trimmedEmail.toLowerCase().endsWith("@4nonome.com")) {
       Alert.alert(
         "メールアドレスが無効です",
-        "@4nonome.com ドメインのメールアドレスのみ登録できます。"
+        "@4nonome.com ドメインのメールアドレスのみ登録できます。",
       );
       return;
     }

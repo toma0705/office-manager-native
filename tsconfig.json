@@ -3,7 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./src/*"] // 👈 「src/*」の頭に「./」を付け足す
+      "@/*": ["./src/*"]
     }
   }
 }
