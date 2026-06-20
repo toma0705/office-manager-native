@@ -17,13 +17,10 @@ type GeofencingTaskData = {
   region: LocationRegion;
 };
 
-// 💡 状態に応じて半径を切り替える関数（ここでお好みの距離を調整できます）
-const getDynamicRadius = (isEntered: boolean) => {
-  // isEntered(入室中)なら退室を緩く(100m)、入室前なら入室を厳しく(20m)
-  return isEntered ? 100 : 20;
+const getDynamicRadius = (isEntered: boolean, officeRadiusMeters: number) => {
+  return isEntered ? officeRadiusMeters + 20 : officeRadiusMeters;
 };
 
-// 💡 動的ジオフェンスの生成
 const toRegion = (
   snapshot: BackgroundAttendanceSnapshot,
   isEntered: boolean,
@@ -31,9 +28,9 @@ const toRegion = (
   identifier: snapshot.officeCode,
   latitude: snapshot.latitude,
   longitude: snapshot.longitude,
-  radius: getDynamicRadius(isEntered), // 状態に合わせて半径が可変する！
-  notifyOnEnter: !isEntered, // 入室前だけ「入室」を検知
-  notifyOnExit: isEntered, // 入室中だけ「退室」を検知
+  radius: getDynamicRadius(isEntered, snapshot.radiusMeters),
+  notifyOnEnter: !isEntered,
+  notifyOnExit: isEntered,
 });
 
 const postAttendanceAction = async (
@@ -84,9 +81,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_GEOFENCING_TASK)) {
 
       try {
         if (data.eventType === GeofencingEventType.Enter && !snapshot.entered) {
-          // 入室処理を実行
           await postAttendanceAction(snapshot, "enter");
-          // 💡 成功したら「退室用（緩い）」のジオフェンスに張り替える
           await Location.startGeofencingAsync(BACKGROUND_GEOFENCING_TASK, [
             toRegion(snapshot, true),
           ]);
@@ -94,9 +89,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_GEOFENCING_TASK)) {
           data.eventType === GeofencingEventType.Exit &&
           snapshot.entered
         ) {
-          // 退室処理を実行
           await postAttendanceAction(snapshot, "exit");
-          // 💡 成功したら「入室用（厳しい）」のジオフェンスに張り替える
           await Location.startGeofencingAsync(BACKGROUND_GEOFENCING_TASK, [
             toRegion(snapshot, false),
           ]);
@@ -125,7 +118,6 @@ export const syncBackgroundAttendanceSnapshot = async (
 
   await backgroundAttendanceStorage.set(snapshot);
 
-  // 💡 起動時・ログイン時に、現在の「入室状態」に合わせて適切な半径で登録する
   await Location.startGeofencingAsync(BACKGROUND_GEOFENCING_TASK, [
     toRegion(snapshot, Boolean(user.entered)),
   ]);
