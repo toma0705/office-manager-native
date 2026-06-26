@@ -12,7 +12,6 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { EnteredUser } from "@office-manager/api-client/dist/esm/index";
 import { StatusTitle } from "@/components/home/StatusTitle";
-import { EnterExitButtons } from "@/components/home/EnterExitButtons";
 import { EnteredUsersList } from "@/components/home/EnteredUsersList";
 import { UserSidebar } from "@/components/home/UserSidebar";
 import { Avatar } from "@/components/ui/Avatar";
@@ -25,6 +24,7 @@ import { colors } from "@/theme/colors";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
 import * as Location from "expo-location";
+import { getDistanceToOffice } from "@/utils/location";
 
 export const HomeScreen: React.FC = () => {
   const navigation =
@@ -33,15 +33,13 @@ export const HomeScreen: React.FC = () => {
   const [enteredUsers, setEnteredUsers] = useState<EnteredUser[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"enter" | "exit" | null>(
-    null,
-  );
   const [locationMessage, setLocationMessage] =
     useState("位置情報を確認しています...");
+  const [debugDistance, setDebugDistance] = useState<string | null>(null);
 
   const entered = Boolean(user?.entered);
 
-  // データの取得
+  // データの取得 (画面を開いた時やリフレッシュ時に最新状態を読み込むのみ)
   const fetchData = useCallback(async () => {
     if (!token) return;
     setRefreshing(true);
@@ -49,17 +47,7 @@ export const HomeScreen: React.FC = () => {
       const api = createUsersApi(token);
       const response = await api.usersMeGet();
       setEnteredUsers(response.enteredUsers ?? []);
-
-      // 💡 修正: 現在のローカルの状態と、サーバーからきた状態が「異なる場合」のみ setUserState を呼ぶ
-      // 同じ状態なら画面のリスト(setEnteredUsers)だけ更新して、裏のジオフェンスは突かない
-      if (user?.entered !== response.user?.entered) {
-        setUserState(response.user);
-      } else {
-        // 状態が変わっていないなら、純粋にユーザー情報（メモなど）のStateだけを更新
-        // （AuthContextに setUser だけを行うシンプルな関数があればそれを使うか、
-        //   変わっていない場合はそのまま setUserState を呼んでも上記1の修正が入っていれば安全です）
-        setUserState(response.user);
-      }
+      setUserState(response.user); // 複雑な分岐を削除してシンプルにセット
     } catch (error) {
       console.error("Failed to load home data", error);
       Alert.alert(
@@ -72,7 +60,7 @@ export const HomeScreen: React.FC = () => {
     }
   }, [setUserState, signOut, token]);
 
-  // 通知の送信
+  // 通知の送信 (メモ追加用として残しています)
   const notifyStatus = useCallback(
     async (status: "入室" | "退室" | "メモを追加", note?: string) => {
       if (!token || !user) return;
@@ -91,39 +79,6 @@ export const HomeScreen: React.FC = () => {
       }
     },
     [token, user],
-  );
-
-  // 打刻入退室リクエストの実行 (手動・自動共通化)
-  const runAttendanceAction = useCallback(
-    async (action: "enter" | "exit") => {
-      if (!user || pendingAction) return false;
-
-      setPendingAction(action);
-      try {
-        const response = await fetch(
-          withApiPath(`/users/${user.id}/${action}`),
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        if (!response.ok) throw new Error("API request failed");
-
-        await notifyStatus(action === "enter" ? "入室" : "退室");
-        await fetchData();
-        return true;
-      } catch (error) {
-        console.error(`Failed to ${action}`, error);
-        Alert.alert(
-          action === "enter" ? "入室に失敗しました" : "退室に失敗しました",
-          "再度お試しください。",
-        );
-        return false;
-      } finally {
-        setPendingAction(null);
-      }
-    },
-    [fetchData, notifyStatus, pendingAction, token, user],
   );
 
   // 画面に表示する位置情報ステータスの確認
@@ -154,7 +109,6 @@ export const HomeScreen: React.FC = () => {
     }
   }, [entered, token, user]);
 
-  // ✨ 修正：重複していたuseFocusEffectを1つに統合
   useFocusEffect(
     useCallback(() => {
       void fetchData(); // サーバーから最新データを取得
@@ -212,8 +166,17 @@ export const HomeScreen: React.FC = () => {
     );
   }, [signOut, user]);
 
+  const handleCheckDistance = async () => {
+    if (!user?.office) return;
+    const distance = await getDistanceToOffice(
+      user.office.latitude,
+      user.office.longitude,
+    );
+    setDebugDistance(`現在のオフィスまでの距離: ${Math.round(distance)}m`);
+  };
+
   const enteredCount = React.useMemo(() => enteredUsers.length, [enteredUsers]);
-  const refreshDisabled = refreshing || pendingAction !== null;
+  const refreshDisabled = refreshing;
 
   const renderSymbol = (
     iosName: React.ComponentProps<typeof SymbolView>["name"],
@@ -285,18 +248,18 @@ export const HomeScreen: React.FC = () => {
 
       {renderLocationStatus()}
 
-      <EnterExitButtons
-        entered={entered}
-        onEnter={useCallback(
-          () => void runAttendanceAction("enter"),
-          [runAttendanceAction],
+      <View>
+        <Button
+          title="距離をデバッグ計測"
+          variant="secondary"
+          onPress={handleCheckDistance}
+        />
+        {debugDistance && (
+          <Text style={{ textAlign: "center", marginTop: 10 }}>
+            {debugDistance}
+          </Text>
         )}
-        onExit={useCallback(
-          () => void runAttendanceAction("exit"),
-          [runAttendanceAction],
-        )}
-        disabled={pendingAction !== null}
-      />
+      </View>
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{user.office.name}</Text>

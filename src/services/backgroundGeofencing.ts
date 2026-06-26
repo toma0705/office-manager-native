@@ -3,6 +3,7 @@ import * as Location from "expo-location";
 import { GeofencingEventType } from "expo-location";
 import type { LocationRegion } from "expo-location";
 import * as TaskManager from "expo-task-manager";
+import { getDistanceToOffice } from "@/utils/location";
 import { API_BASE_URL, withApiPath } from "@/constants/config";
 import {
   backgroundAttendanceStorage,
@@ -105,11 +106,32 @@ export const syncBackgroundAttendanceSnapshot = async (
   token: string | null,
   user: UserSafe | null,
 ) => {
-  if (!token || !user) {
+  if (!token || !user || !user.office) {
     await stopBackgroundAttendanceMonitoring();
     return;
   }
 
+  // 1. 既存の utils/location.ts を使って距離を計算
+  const distance = await getDistanceToOffice(
+    user.office.latitude,
+    user.office.longitude,
+  );
+
+  // 判定範囲を取得
+  const currentRadius = getDynamicRadius(
+    Boolean(user.entered),
+    user.office.radiusMeters,
+  );
+  const shouldBeEntered = distance <= currentRadius;
+
+  // 2. 💡 ガード：サーバーの状態と現在の判定が一致していればスキップ
+  if (shouldBeEntered === Boolean(user.entered)) {
+    console.log("【同期】状態に変化なし。同期をスキップします。");
+    // ここでreturnしてAPI呼び出しを止める！
+    return;
+  }
+
+  // 3. 状態が変わっている場合のみ、以降の同期処理を実行
   const snapshot = createBackgroundAttendanceSnapshot(token, user);
   if (!snapshot) {
     await stopBackgroundAttendanceMonitoring();
