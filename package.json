@@ -1,7 +1,7 @@
 {
   "name": "office-manager-native",
   "license": "0BSD",
-  "version": "7.7.1",
+  "version": "2.0",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
