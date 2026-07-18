@@ -1,8 +1,8 @@
-/** @type {import('expo/config').ExpoConfig} */
 const config = {
   name: "入退室管理",
   owner: "toma0705",
   slug: "office-manager-native",
+  scheme: "officemanager",
   version: "2.0",
   orientation: "portrait",
   icon: "./assets/office-manager-icon.png",
@@ -33,6 +33,7 @@ const config = {
         "オフィス付近への入退室を検知して、自動で入退室を記録するために位置情報を利用します。",
       NSPhotoLibraryUsageDescription:
         "プロフィール画像を設定するために写真ライブラリにアクセスします。",
+      UIBackgroundModes: ["location", "fetch"],
     },
   },
   android: {

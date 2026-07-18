@@ -1,13 +1,21 @@
-// utils/location.ts (または共通の場所に作成)
 import * as Location from "expo-location";
 
+/**
+ * 現在地からオフィスまでの距離をメートルで計算する
+ * @param officeLat オフィスの緯度
+ * @param officeLon オフィスの経度
+ * @returns 距離（メートル）
+ */
 export const getDistanceToOffice = async (
   officeLat: number,
   officeLon: number,
-) => {
-  const current = await Location.getCurrentPositionAsync({});
+): Promise<number> => {
+  // キャッシュを避け、最新かつ高精度の位置情報を取得する
+  const current = await Location.getCurrentPositionAsync({
+    accuracy: Location.Accuracy.BestForNavigation,
+  });
 
-  // expo-location には直接距離計算はないので、Haversine公式などを使います
+  // Haversine公式による距離計算
   const toRad = (value: number) => (value * Math.PI) / 180;
 
   const R = 6371e3; // 地球の半径 (メートル)
@@ -22,7 +30,8 @@ export const getDistanceToOffice = async (
       Math.cos(lat2) *
       Math.sin(deltaLon / 2) *
       Math.sin(deltaLon / 2);
+
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-  return R * c; // メートルで返す
+  return R * c;
 };

@@ -14,6 +14,7 @@ export type BackgroundAttendanceSnapshot = {
   longitude: number;
   radiusMeters: number;
   entered: boolean;
+  lastTransitionAt?: number;
 };
 
 export const backgroundAttendanceStorage = {

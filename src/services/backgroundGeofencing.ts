@@ -3,7 +3,6 @@ import * as Location from "expo-location";
 import { GeofencingEventType } from "expo-location";
 import type { LocationRegion } from "expo-location";
 import * as TaskManager from "expo-task-manager";
-import { getDistanceToOffice } from "@/utils/location";
 import { API_BASE_URL, withApiPath } from "@/constants/config";
 import {
   backgroundAttendanceStorage,
@@ -12,6 +11,9 @@ import {
 } from "@/storage/backgroundAttendanceStorage";
 
 export const BACKGROUND_GEOFENCING_TASK = "office-manager-background-geofence";
+const MIN_TRANSITION_INTERVAL_MS = 10_000;
+const ENTER_PADDING_METERS = 5;
+const EXIT_PADDING_METERS = 10;
 
 type GeofencingTaskData = {
   eventType: GeofencingEventType;
@@ -19,7 +21,10 @@ type GeofencingTaskData = {
 };
 
 const getDynamicRadius = (isEntered: boolean, officeRadiusMeters: number) => {
-  return isEntered ? officeRadiusMeters + 20 : officeRadiusMeters;
+  return (
+    officeRadiusMeters +
+    (isEntered ? EXIT_PADDING_METERS : ENTER_PADDING_METERS)
+  );
 };
 
 const toRegion = (
@@ -65,7 +70,10 @@ const postAttendanceAction = async (
     console.warn("Failed to notify background attendance", error);
   });
 
-  await backgroundAttendanceStorage.patch({ entered: action === "enter" });
+  await backgroundAttendanceStorage.patch({
+    entered: action === "enter",
+    lastTransitionAt: Date.now(),
+  });
 };
 
 if (!TaskManager.isTaskDefined(BACKGROUND_GEOFENCING_TASK)) {
@@ -81,6 +89,14 @@ if (!TaskManager.isTaskDefined(BACKGROUND_GEOFENCING_TASK)) {
       if (!snapshot || !data) return;
 
       try {
+        const now = Date.now();
+        if (
+          snapshot.lastTransitionAt &&
+          now - snapshot.lastTransitionAt < MIN_TRANSITION_INTERVAL_MS
+        ) {
+          return;
+        }
+
         if (data.eventType === GeofencingEventType.Enter && !snapshot.entered) {
           await postAttendanceAction(snapshot, "enter");
           await Location.startGeofencingAsync(BACKGROUND_GEOFENCING_TASK, [
@@ -111,35 +127,24 @@ export const syncBackgroundAttendanceSnapshot = async (
     return;
   }
 
-  // 1. 既存の utils/location.ts を使って距離を計算
-  const distance = await getDistanceToOffice(
-    user.office.latitude,
-    user.office.longitude,
-  );
-
-  // 判定範囲を取得
-  const currentRadius = getDynamicRadius(
-    Boolean(user.entered),
-    user.office.radiusMeters,
-  );
-  const shouldBeEntered = distance <= currentRadius;
-
-  // 2. 💡 ガード：サーバーの状態と現在の判定が一致していればスキップ
-  if (shouldBeEntered === Boolean(user.entered)) {
-    console.log("【同期】状態に変化なし。同期をスキップします。");
-    // ここでreturnしてAPI呼び出しを止める！
-    return;
-  }
-
-  // 3. 状態が変わっている場合のみ、以降の同期処理を実行
   const snapshot = createBackgroundAttendanceSnapshot(token, user);
   if (!snapshot) {
     await stopBackgroundAttendanceMonitoring();
     return;
   }
 
+  const currentSnapshot = await backgroundAttendanceStorage.get();
+  if (
+    currentSnapshot?.userId === snapshot.userId &&
+    currentSnapshot.officeCode === snapshot.officeCode
+  ) {
+    snapshot.lastTransitionAt = currentSnapshot.lastTransitionAt;
+  }
+
   await backgroundAttendanceStorage.set(snapshot);
 
+  // 状態が一致していても、監視自体は必ず開始・更新する。
+  // Discord 通知は task の enter / exit 遷移時だけ発火するため、ここでは送らない。
   await Location.startGeofencingAsync(BACKGROUND_GEOFENCING_TASK, [
     toRegion(snapshot, Boolean(user.entered)),
   ]);

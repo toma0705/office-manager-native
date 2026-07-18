@@ -168,11 +168,21 @@ export const HomeScreen: React.FC = () => {
 
   const handleCheckDistance = async () => {
     if (!user?.office) return;
-    const distance = await getDistanceToOffice(
-      user.office.latitude,
-      user.office.longitude,
-    );
-    setDebugDistance(`現在のオフィスまでの距離: ${Math.round(distance)}m`);
+
+    // 1. 一度状態をクリアして「計測中」であることを明示する（UIの更新を強制する）
+    setDebugDistance("計測中...");
+
+    try {
+      const distance = await getDistanceToOffice(
+        user.office.latitude,
+        user.office.longitude,
+      );
+      // 2. 結果をセット
+      setDebugDistance(`現在のオフィスまでの距離: ${Math.round(distance)}m`);
+    } catch (error) {
+      setDebugDistance("計測失敗");
+      console.error(error);
+    }
   };
 
   const enteredCount = React.useMemo(() => enteredUsers.length, [enteredUsers]);
