@@ -17,7 +17,7 @@ import { UserSidebar } from "@/components/home/UserSidebar";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
-import { createNotificationsApi, createUsersApi } from "@/api/client";
+import { createUsersApi } from "@/api/client";
 import { withApiPath } from "@/constants/config";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import { colors } from "@/theme/colors";
@@ -45,7 +45,7 @@ export const HomeScreen: React.FC = () => {
       const api = createUsersApi(token);
       const response = await api.usersMeGet();
       setEnteredUsers(response.enteredUsers ?? []);
-      setUserState(response.user); // 複雑な分岐を削除してシンプルにセット
+      setUserState(response.user);
     } catch (error) {
       console.error("Failed to load home data", error);
       Alert.alert(
@@ -55,27 +55,6 @@ export const HomeScreen: React.FC = () => {
       );
     }
   }, [setUserState, signOut, token]);
-
-  // 通知の送信 (メモ追加用として残しています)
-  const notifyStatus = useCallback(
-    async (status: "入室" | "退室" | "メモを追加", note?: string) => {
-      if (!token || !user) return;
-      try {
-        const api = createNotificationsApi(token);
-        await api.notifyPost({
-          notifyPostRequest: {
-            user: user.name,
-            status,
-            officeCode: user.office?.code ?? null,
-            note,
-          },
-        });
-      } catch (error) {
-        console.warn("Failed to send notification", error);
-      }
-    },
-    [token, user],
-  );
 
   // 画面に表示する位置情報ステータスの確認
   const evaluateAutoAttendance = useCallback(async () => {
@@ -107,32 +86,9 @@ export const HomeScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      void fetchData(); // サーバーから最新データを取得
-      void evaluateAutoAttendance(); // 位置情報の権限をチェック
+      void fetchData();
+      void evaluateAutoAttendance();
     }, [fetchData, evaluateAutoAttendance]),
-  );
-
-  // メモの保存・ログアウト・アカウント削除
-  const handleSaveNote = useCallback(
-    async (userId: number, note: string) => {
-      if (!token) return;
-      try {
-        const api = createUsersApi(token);
-        await api.usersIdPatch({ id: userId, usersIdPatchRequest: { note } });
-        if (user && user.id === userId) {
-          setUserState({ ...user, note });
-          const trimmed = note.trim();
-          if (trimmed) {
-            await notifyStatus("メモを追加", trimmed);
-          }
-        }
-        await fetchData();
-      } catch (error) {
-        console.error("Failed to save note", error);
-        Alert.alert("保存に失敗しました", "メモの保存に失敗しました。");
-      }
-    },
-    [fetchData, notifyStatus, setUserState, token, user],
   );
 
   const handleDeleteAccount = useCallback(async () => {
@@ -278,9 +234,7 @@ export const HomeScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <EnteredUsersList
-        me={user}
         users={enteredUsers}
-        onSaveNote={handleSaveNote}
         header={listHeader}
         contentContainerStyle={styles.listContent}
       />
