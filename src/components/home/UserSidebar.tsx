@@ -18,9 +18,6 @@ type Props = {
   visible: boolean;
   user: UserSafe | null;
   onClose: () => void;
-  onRefresh: () => void;
-  refreshDisabled: boolean;
-  refreshing: boolean;
   onLogout: () => void;
   onDelete: () => void;
 };
@@ -29,9 +26,6 @@ export const UserSidebar: React.FC<Props> = ({
   visible,
   user,
   onClose,
-  onRefresh,
-  refreshDisabled,
-  refreshing,
   onLogout,
   onDelete,
 }) => {
@@ -75,19 +69,6 @@ export const UserSidebar: React.FC<Props> = ({
                   <Text style={styles.office}>{user.office.name}</Text>
                 </View>
               </View>
-              <Button
-                title={refreshing ? "読込中..." : "最新情報を更新"}
-                variant="secondary"
-                onPress={onRefresh}
-                disabled={refreshDisabled}
-                loading={refreshing}
-                leftIcon={renderIcon(
-                  "arrow.clockwise",
-                  "refresh-cw",
-                  colors.primaryDark,
-                )}
-                fullWidth
-              />
               <Button
                 title="ログアウト"
                 variant="secondary"
