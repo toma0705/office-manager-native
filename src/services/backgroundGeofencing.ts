@@ -12,8 +12,8 @@ import {
 
 export const BACKGROUND_GEOFENCING_TASK = "office-manager-background-geofence";
 const MIN_TRANSITION_INTERVAL_MS = 10_000;
-const ENTER_PADDING_METERS = 5;
-const EXIT_PADDING_METERS = 10;
+const ENTER_RADIUS_PADDING_METERS = 5;
+const EXIT_RADIUS_PADDING_METERS = 10;
 
 type GeofencingTaskData = {
   eventType: GeofencingEventType;
@@ -23,7 +23,7 @@ type GeofencingTaskData = {
 const getDynamicRadius = (isEntered: boolean, officeRadiusMeters: number) => {
   return (
     officeRadiusMeters +
-    (isEntered ? EXIT_PADDING_METERS : ENTER_PADDING_METERS)
+    (isEntered ? EXIT_RADIUS_PADDING_METERS : ENTER_RADIUS_PADDING_METERS)
   );
 };
 
