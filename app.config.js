@@ -23,11 +23,17 @@ const config = {
     bundleIdentifier: "com.toma0705.officemanager",
     buildNumber: "1",
     icon: "./assets/office-manager-icon.png",
+    // ✨ Wi-Fi(SSID)取得のための権限を追加
+    entitlements: {
+      "com.apple.developer.networking.wifi-info": true,
+    },
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       NSFaceIDUsageDescription:
         "Face IDを使用してアカウントに安全にログインします。",
       NSLocationAlwaysAndWhenInUseUsageDescription:
+        "アプリを閉じていてもオフィスへの入退室を検知し、自動で入退室を記録するために位置情報を利用します。",
+      NSLocationAlwaysUsageDescription:
         "アプリを閉じていてもオフィスへの入退室を検知し、自動で入退室を記録するために位置情報を利用します。",
       NSLocationWhenInUseUsageDescription:
         "オフィス付近への入退室を検知して、自動で入退室を記録するために位置情報を利用します。",
@@ -43,6 +49,14 @@ const config = {
     },
     package: "com.toma0705.officemanager",
     versionCode: 1,
+    // ✨ Androidでのバックグラウンド位置情報およびWi-Fi状態取得のパーミッション設定
+    permissions: [
+      "ACCESS_COARSE_LOCATION",
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_BACKGROUND_LOCATION",
+      "ACCESS_WIFI_STATE",
+      "ACCESS_NETWORK_STATE",
+    ],
   },
   web: {
     favicon: "./assets/favicon.png",

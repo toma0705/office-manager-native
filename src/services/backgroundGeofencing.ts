@@ -3,6 +3,8 @@ import * as Location from "expo-location";
 import { GeofencingEventType } from "expo-location";
 import type { LocationRegion } from "expo-location";
 import * as TaskManager from "expo-task-manager";
+import NetInfo from "@react-native-community/netinfo";
+import * as BackgroundTask from "expo-background-task";
 import { API_BASE_URL, withApiPath } from "@/constants/config";
 import {
   backgroundAttendanceStorage,
@@ -11,33 +13,39 @@ import {
 } from "@/storage/backgroundAttendanceStorage";
 
 export const BACKGROUND_GEOFENCING_TASK = "office-manager-background-geofence";
+export const BACKGROUND_WIFI_CHECK_TASK = "office-manager-wifi-check";
+
 const MIN_TRANSITION_INTERVAL_MS = 10_000;
-const ENTER_RADIUS_PADDING_METERS = 5;
-const EXIT_RADIUS_PADDING_METERS = 10;
+const OFFICE_SSID = "Shinonome-PlayGround-5G";
 
 type GeofencingTaskData = {
   eventType: GeofencingEventType;
   region: LocationRegion;
 };
 
-const getDynamicRadius = (isEntered: boolean, officeRadiusMeters: number) => {
-  return (
-    officeRadiusMeters +
-    (isEntered ? EXIT_RADIUS_PADDING_METERS : ENTER_RADIUS_PADDING_METERS)
-  );
-};
-
-const toRegion = (
-  snapshot: BackgroundAttendanceSnapshot,
-  isEntered: boolean,
-): LocationRegion => ({
+const toRegion = (snapshot: BackgroundAttendanceSnapshot): LocationRegion => ({
   identifier: snapshot.officeCode,
   latitude: snapshot.latitude,
   longitude: snapshot.longitude,
-  radius: getDynamicRadius(isEntered, snapshot.radiusMeters),
-  notifyOnEnter: !isEntered,
-  notifyOnExit: isEntered,
+  radius: snapshot.radiusMeters,
+  notifyOnEnter: true,
+  notifyOnExit: true,
 });
+
+// タイマー（定期チェック）を停止するヘルパー関数
+const stopWifiCheckTimer = async () => {
+  try {
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(
+      BACKGROUND_WIFI_CHECK_TASK,
+    );
+    if (isRegistered) {
+      await BackgroundTask.unregisterTaskAsync(BACKGROUND_WIFI_CHECK_TASK);
+      console.log("[BackgroundTask] Wi-Fiチェックタイマーを停止しました。");
+    }
+  } catch (error) {
+    console.warn("Failed to stop wifi check timer", error);
+  }
+};
 
 const postAttendanceAction = async (
   snapshot: BackgroundAttendanceSnapshot,
@@ -76,6 +84,43 @@ const postAttendanceAction = async (
   });
 };
 
+// ============================================================================
+// 1. Wi-Fi定期チェックのバックグラウンドタスク定義
+// ============================================================================
+if (!TaskManager.isTaskDefined(BACKGROUND_WIFI_CHECK_TASK)) {
+  TaskManager.defineTask(BACKGROUND_WIFI_CHECK_TASK, async () => {
+    try {
+      const snapshot = await backgroundAttendanceStorage.get();
+      if (!snapshot || snapshot.entered) {
+        await stopWifiCheckTimer();
+        return;
+      }
+
+      const netState = await NetInfo.fetch();
+      const currentSSID =
+        netState.type === "wifi" ? netState.details.ssid : null;
+
+      if (currentSSID === OFFICE_SSID) {
+        console.log(
+          `[WiFi Check] SSID(${currentSSID})一致！自動入室を実行します。`,
+        );
+        await postAttendanceAction(snapshot, "enter");
+        await stopWifiCheckTimer();
+        return;
+      }
+
+      console.log(
+        `[WiFi Check] まだWi-Fiに未接続(${currentSSID})。次回再度チェックします。`,
+      );
+    } catch (error) {
+      console.warn("Background WiFi check task failed", error);
+    }
+  });
+}
+
+// ============================================================================
+// 2. GPS（ジオフェンス）のバックグラウンドタスク定義
+// ============================================================================
 if (!TaskManager.isTaskDefined(BACKGROUND_GEOFENCING_TASK)) {
   TaskManager.defineTask<GeofencingTaskData>(
     BACKGROUND_GEOFENCING_TASK,
@@ -97,19 +142,35 @@ if (!TaskManager.isTaskDefined(BACKGROUND_GEOFENCING_TASK)) {
           return;
         }
 
+        // 🔵 エリアに入った時（Enter）
         if (data.eventType === GeofencingEventType.Enter && !snapshot.entered) {
-          await postAttendanceAction(snapshot, "enter");
-          await Location.startGeofencingAsync(BACKGROUND_GEOFENCING_TASK, [
-            toRegion(snapshot, true),
-          ]);
-        } else if (
-          data.eventType === GeofencingEventType.Exit &&
-          snapshot.entered
-        ) {
-          await postAttendanceAction(snapshot, "exit");
-          await Location.startGeofencingAsync(BACKGROUND_GEOFENCING_TASK, [
-            toRegion(snapshot, false),
-          ]);
+          console.log(
+            `[Geofence Enter] エリア内に入りました。Wi-Fi定期チェックを開始します。`,
+          );
+
+          const isRegistered = await TaskManager.isTaskRegisteredAsync(
+            BACKGROUND_WIFI_CHECK_TASK,
+          );
+          if (!isRegistered) {
+            await BackgroundTask.registerTaskAsync(BACKGROUND_WIFI_CHECK_TASK, {
+              minimumInterval: 10,
+            });
+          }
+        }
+        // 🔴 エリアから出た時（Exit）
+        else if (data.eventType === GeofencingEventType.Exit) {
+          if (snapshot.entered) {
+            console.log(
+              `[Geofence Exit] エリア外に出たため退室処理を実行します。`,
+            );
+            await postAttendanceAction(snapshot, "exit");
+          } else {
+            console.log(
+              `[Geofence Exit] エリア外に出たため定期チェックタスクを停止します。`,
+            );
+          }
+          // エリア外に出たら常にWi-Fi定期チェックタスクは停止する
+          await stopWifiCheckTimer();
         }
       } catch (taskError) {
         console.warn("Failed to handle geofencing event", taskError);
@@ -143,10 +204,8 @@ export const syncBackgroundAttendanceSnapshot = async (
 
   await backgroundAttendanceStorage.set(snapshot);
 
-  // 状態が一致していても、監視自体は必ず開始・更新する。
-  // Discord 通知は task の enter / exit 遷移時だけ発火するため、ここでは送らない。
   await Location.startGeofencingAsync(BACKGROUND_GEOFENCING_TASK, [
-    toRegion(snapshot, Boolean(user.entered)),
+    toRegion(snapshot),
   ]);
 };
 
@@ -154,5 +213,6 @@ export const stopBackgroundAttendanceMonitoring = async () => {
   if (await Location.hasStartedGeofencingAsync(BACKGROUND_GEOFENCING_TASK)) {
     await Location.stopGeofencingAsync(BACKGROUND_GEOFENCING_TASK);
   }
+  await stopWifiCheckTimer();
   await backgroundAttendanceStorage.remove();
 };
