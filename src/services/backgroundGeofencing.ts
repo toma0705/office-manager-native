@@ -16,7 +16,7 @@ export const BACKGROUND_GEOFENCING_TASK = "office-manager-background-geofence";
 export const BACKGROUND_WIFI_CHECK_TASK = "office-manager-wifi-check";
 
 const MIN_TRANSITION_INTERVAL_MS = 10_000;
-const OFFICE_SSID = "Shinonome-PlayGround-5G";
+const OFFICE_IP_PREFIX = "192.168.3.";
 
 type GeofencingTaskData = {
   eventType: GeofencingEventType;
@@ -84,12 +84,35 @@ const postAttendanceAction = async (
   });
 };
 
+// デバッグ用のネットワーク状態確認関数
+const debugPrintWifiState = async () => {
+  const netState = await NetInfo.fetch();
+
+  console.log("================ [Wi-Fi Debug Start] ================");
+  console.log("Network Type:", netState.type);
+  console.log("Is Connected:", netState.isConnected);
+  console.log("Is Internet Reachable:", netState.isInternetReachable);
+  console.log("Full NetInfo State Object:", JSON.stringify(netState, null, 2));
+
+  if (netState.type === "wifi") {
+    const details = netState.details as { ipAddress?: string; subnet?: string };
+    console.log("IP Address:", details?.ipAddress);
+    console.log("Subnet Mask:", details?.subnet);
+  } else {
+    console.log("⚠️ Wi-Fiに接続されていないか、認識されていません。");
+  }
+  console.log("================= [Wi-Fi Debug End] =================");
+};
+
 // ============================================================================
-// 1. Wi-Fi定期チェックのバックグラウンドタスク定義
+// 1. Wi-Fi (IP) 定期チェックのバックグラウンドタスク定義
 // ============================================================================
 if (!TaskManager.isTaskDefined(BACKGROUND_WIFI_CHECK_TASK)) {
   TaskManager.defineTask(BACKGROUND_WIFI_CHECK_TASK, async () => {
     try {
+      console.log("[Background Task Executed]");
+      await debugPrintWifiState();
+
       const snapshot = await backgroundAttendanceStorage.get();
       if (!snapshot || snapshot.entered) {
         await stopWifiCheckTimer();
@@ -97,21 +120,29 @@ if (!TaskManager.isTaskDefined(BACKGROUND_WIFI_CHECK_TASK)) {
       }
 
       const netState = await NetInfo.fetch();
-      const currentSSID =
-        netState.type === "wifi" ? netState.details.ssid : null;
 
-      if (currentSSID === OFFICE_SSID) {
+      if (netState.type === "wifi" && netState.details) {
+        const details = netState.details as { ipAddress?: string };
+        const currentIP = details.ipAddress;
+
+        // オフィスのルーターから割り当てられるIP帯（例: 192.168.3.X）に一致するか検証
+        if (currentIP && currentIP.startsWith(OFFICE_IP_PREFIX)) {
+          console.log(
+            `[WiFi Check] IP(${currentIP})がオフィスのIP帯(${OFFICE_IP_PREFIX}*)と一致！自動入室を実行します。`,
+          );
+          await postAttendanceAction(snapshot, "enter");
+          await stopWifiCheckTimer();
+          return;
+        }
+
         console.log(
-          `[WiFi Check] SSID(${currentSSID})一致！自動入室を実行します。`,
+          `[WiFi Check] 現在のIP(${currentIP ?? "不明"})はオフィスのWi-Fiと異なります。次回再度チェックします。`,
         );
-        await postAttendanceAction(snapshot, "enter");
-        await stopWifiCheckTimer();
-        return;
+      } else {
+        console.log(
+          `[WiFi Check] まだWi-Fi未接続（ネットワークタイプ: ${netState.type}）。次回再度チェックします。`,
+        );
       }
-
-      console.log(
-        `[WiFi Check] まだWi-Fiに未接続(${currentSSID})。次回再度チェックします。`,
-      );
     } catch (error) {
       console.warn("Background WiFi check task failed", error);
     }
@@ -130,6 +161,9 @@ if (!TaskManager.isTaskDefined(BACKGROUND_GEOFENCING_TASK)) {
         return;
       }
 
+      console.log(`[Geofence Event Triggered: ${data.eventType}]`);
+      await debugPrintWifiState();
+
       const snapshot = await backgroundAttendanceStorage.get();
       if (!snapshot || !data) return;
 
@@ -145,9 +179,29 @@ if (!TaskManager.isTaskDefined(BACKGROUND_GEOFENCING_TASK)) {
         // 🔵 エリアに入った時（Enter）
         if (data.eventType === GeofencingEventType.Enter && !snapshot.entered) {
           console.log(
-            `[Geofence Enter] エリア内に入りました。Wi-Fi定期チェックを開始します。`,
+            `[Geofence Enter] エリア内に入りました。即時IPチェックを実行します。`,
           );
 
+          // 1. その場で即時IPチェックを行う
+          const netState = await NetInfo.fetch();
+          if (netState.type === "wifi" && netState.details) {
+            const details = netState.details as { ipAddress?: string };
+            const currentIP = details.ipAddress;
+
+            if (currentIP && currentIP.startsWith(OFFICE_IP_PREFIX)) {
+              console.log(
+                `[Geofence Enter Instant Check] IP(${currentIP})がオフィスのIP帯(${OFFICE_IP_PREFIX}*)と一致！即時自動入室を実行します。`,
+              );
+              await postAttendanceAction(snapshot, "enter");
+              await stopWifiCheckTimer();
+              return; // 入室完了のためタイマー起動はスキップ
+            }
+          }
+
+          // 2. まだオフィスのWi-Fiに未接続の場合はバックグラウンド定期タスクを開始
+          console.log(
+            `[Geofence Enter] まだオフィスのWi-Fi未接続。定期Wi-Fiチェックタイマーを開始します。`,
+          );
           const isRegistered = await TaskManager.isTaskRegisteredAsync(
             BACKGROUND_WIFI_CHECK_TASK,
           );
@@ -169,7 +223,6 @@ if (!TaskManager.isTaskDefined(BACKGROUND_GEOFENCING_TASK)) {
               `[Geofence Exit] エリア外に出たため定期チェックタスクを停止します。`,
             );
           }
-          // エリア外に出たら常にWi-Fi定期チェックタスクは停止する
           await stopWifiCheckTimer();
         }
       } catch (taskError) {
@@ -183,6 +236,8 @@ export const syncBackgroundAttendanceSnapshot = async (
   token: string | null,
   user: UserSafe | null,
 ) => {
+  await stopWifiCheckTimer();
+
   if (!token || !user || !user.office) {
     await stopBackgroundAttendanceMonitoring();
     return;
