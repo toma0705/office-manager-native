@@ -58,6 +58,7 @@ const config = {
   plugins: [
     "expo-updates",
     "expo-secure-store",
+    "./plugins/withPodsDeploymentTarget",
     [
       "expo-location",
       {
