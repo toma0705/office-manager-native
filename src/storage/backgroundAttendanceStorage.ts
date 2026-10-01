@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { UserSafe } from "@office-manager/api-client";
-import { getOfficeLocation } from "@/utils/location";
+import { getOfficeBeacon, type OfficeBeacon } from "@/constants/beacon";
 
 const BACKGROUND_ATTENDANCE_KEY = "office-manager/background-attendance";
 
@@ -11,9 +11,11 @@ export type BackgroundAttendanceSnapshot = {
   officeCode: string;
   officeName: string;
   entered: boolean;
-  latitude: number;
-  longitude: number;
-  radiusMeters: number;
+  beacon: OfficeBeacon;
+  /** 最後に入退室を記録した時刻 (ms)。チャタリング防止に使う */
+  lastTransitionAt: number;
+  /** クールダウンで保留中のビーコン状態 */
+  pendingState: "inside" | "outside" | null;
 };
 
 const isSnapshot = (
@@ -27,17 +29,16 @@ const isSnapshot = (
       typeof value.officeCode === "string" &&
       typeof value.officeName === "string" &&
       typeof value.entered === "boolean" &&
-      typeof value.latitude === "number" &&
-      typeof value.longitude === "number" &&
-      typeof value.radiusMeters === "number"
+      typeof value.beacon?.uuid === "string" &&
+      typeof value.lastTransitionAt === "number"
   );
 
 export const createBackgroundAttendanceSnapshot = (
   token: string,
   user: UserSafe
 ): BackgroundAttendanceSnapshot | null => {
-  const officeLocation = getOfficeLocation(user.office);
-  if (!token || !officeLocation || !user.office?.code || !user.office?.name) {
+  const beacon = getOfficeBeacon(user.office);
+  if (!token || !beacon || !user.office?.code || !user.office?.name) {
     return null;
   }
 
@@ -48,9 +49,9 @@ export const createBackgroundAttendanceSnapshot = (
     officeCode: user.office.code,
     officeName: user.office.name,
     entered: Boolean(user.entered),
-    latitude: officeLocation.latitude,
-    longitude: officeLocation.longitude,
-    radiusMeters: officeLocation.radiusMeters,
+    beacon,
+    lastTransitionAt: 0,
+    pendingState: null,
   };
 };
 

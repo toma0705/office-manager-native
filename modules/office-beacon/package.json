@@ -1,0 +1,7 @@
+{
+  "name": "office-beacon",
+  "version": "1.0.0",
+  "description": "iBeacon region monitoring for office attendance",
+  "main": "src/index.ts",
+  "license": "0BSD"
+}

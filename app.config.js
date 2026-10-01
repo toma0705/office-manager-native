@@ -28,9 +28,11 @@ const config = {
       NSFaceIDUsageDescription:
         "Face IDを使用してアカウントに安全にログインします。",
       NSLocationAlwaysAndWhenInUseUsageDescription:
-        "アプリを閉じていてもオフィスへの到着・離脱を検知し、自動で入退室を記録するために位置情報を利用します。",
+        "アプリを閉じていてもオフィスのビーコンを検知し、自動で入退室を記録するために位置情報を利用します。",
       NSLocationWhenInUseUsageDescription:
-        "オフィス付近への到着・離脱を検知して、自動で入退室を記録するために位置情報を利用します。",
+        "オフィスのビーコンを検知して、自動で入退室を記録するために位置情報を利用します。",
+      NSBluetoothAlwaysUsageDescription:
+        "オフィスに設置されたビーコンを検知して、自動で入退室を記録するためにBluetoothを利用します。",
       NSPhotoLibraryUsageDescription:
         "プロフィール画像を設定するために写真ライブラリにアクセスします。",
     },
@@ -60,11 +62,11 @@ const config = {
       "expo-location",
       {
         locationWhenInUsePermission:
-          "オフィス付近への到着・離脱を検知して、自動で入退室を記録するために位置情報を利用します。",
+          "オフィスのビーコンを検知して、自動で入退室を記録するために位置情報を利用します。",
         locationAlwaysAndWhenInUsePermission:
-          "アプリを閉じていてもオフィスへの到着・離脱を検知し、自動で入退室を記録するために位置情報を利用します。",
+          "アプリを閉じていてもオフィスのビーコンを検知し、自動で入退室を記録するために位置情報を利用します。",
+        // iBeacon 領域監視は位置情報サービスの一部（常に許可 + location background mode が必要）
         isIosBackgroundLocationEnabled: true,
-        isAndroidBackgroundLocationEnabled: true,
       },
     ],
     [

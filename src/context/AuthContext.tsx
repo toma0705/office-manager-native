@@ -16,7 +16,7 @@ import { createUsersApi } from "@/api/client";
 import {
   stopBackgroundAttendanceMonitoring,
   syncBackgroundAttendanceSnapshot,
-} from "@/services/backgroundGeofencing";
+} from "@/services/backgroundBeacon";
 import { credentialStorage } from "@/storage/credentialStorage";
 import { tokenStorage } from "@/storage/tokenStorage";
 
