@@ -3,7 +3,7 @@ const config = {
   name: "入退室管理",
   owner: "toma0705",
   slug: "office-manager-native",
-  version: "1.1.0",
+  version: "3.0.0",
   orientation: "portrait",
   icon: "./assets/office-manager-icon.png",
   userInterfaceStyle: "light",
@@ -21,10 +21,13 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.toma0705.officemanager",
-    buildNumber: "1",
+    buildNumber: "4",
     icon: "./assets/office-manager-icon.png",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      // ビーコン領域監視に必要なのは location のみ。
+      // processing を残すと BGTaskSchedulerPermittedIdentifiers が必須になりアップロードが拒否される
+      UIBackgroundModes: ["location"],
       NSFaceIDUsageDescription:
         "Face IDを使用してアカウントに安全にログインします。",
       NSLocationAlwaysAndWhenInUseUsageDescription:
@@ -84,6 +87,9 @@ const config = {
     ],
   ],
   extra: {
+    // Release ビルドでは .env が JS バンドルに埋め込まれないため、
+    // ネイティブの app.config 経由で API の接続先を渡す（値は .env のまま）
+    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
     eas: {
       projectId: "98a48421-8173-486e-92b8-71d9569e2b77",
     },

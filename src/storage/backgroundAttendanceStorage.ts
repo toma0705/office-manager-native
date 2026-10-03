@@ -12,10 +12,6 @@ export type BackgroundAttendanceSnapshot = {
   officeName: string;
   entered: boolean;
   beacon: OfficeBeacon;
-  /** 最後に入退室を記録した時刻 (ms)。チャタリング防止に使う */
-  lastTransitionAt: number;
-  /** クールダウンで保留中のビーコン状態 */
-  pendingState: "inside" | "outside" | null;
 };
 
 const isSnapshot = (
@@ -29,8 +25,7 @@ const isSnapshot = (
       typeof value.officeCode === "string" &&
       typeof value.officeName === "string" &&
       typeof value.entered === "boolean" &&
-      typeof value.beacon?.uuid === "string" &&
-      typeof value.lastTransitionAt === "number"
+      typeof value.beacon?.uuid === "string"
   );
 
 export const createBackgroundAttendanceSnapshot = (
@@ -50,8 +45,6 @@ export const createBackgroundAttendanceSnapshot = (
     officeName: user.office.name,
     entered: Boolean(user.entered),
     beacon,
-    lastTransitionAt: 0,
-    pendingState: null,
   };
 };
 

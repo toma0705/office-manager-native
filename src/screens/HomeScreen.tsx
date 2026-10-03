@@ -17,19 +17,17 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { EnteredUser } from "@office-manager/api-client";
 import { StatusTitle } from "@/components/home/StatusTitle";
-import { EnterExitButtons } from "@/components/home/EnterExitButtons";
 import { EnteredUsersList } from "@/components/home/EnteredUsersList";
 import { UserSidebar } from "@/components/home/UserSidebar";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
-import { createNotificationsApi, createUsersApi } from "@/api/client";
+import { createUsersApi } from "@/api/client";
 import { withApiPath } from "@/constants/config";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import {
   ensureBackgroundAttendanceMonitoring,
   onBackgroundAttendanceChanged,
-  reconcilePendingAttendance,
 } from "@/services/backgroundBeacon";
 import { colors } from "@/theme/colors";
 import { SymbolView } from "expo-symbols";
@@ -43,9 +41,6 @@ export const HomeScreen: React.FC = () => {
   const [enteredUsers, setEnteredUsers] = useState<EnteredUser[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"enter" | "exit" | null>(
-    null,
-  );
   const [locationMessage, setLocationMessage] =
     useState("ビーコンを確認しています...");
   const backgroundSetupAttemptedRef = useRef(false);
@@ -72,88 +67,12 @@ export const HomeScreen: React.FC = () => {
     }
   }, [setUserState, signOut, token]);
 
-  const notifyStatus = useCallback(
-    async (status: "入室" | "退室" | "メモを追加", note?: string) => {
-      if (!token || !user) return;
-      try {
-        const api = createNotificationsApi(token);
-        await api.notifyPost({
-          notifyPostRequest: {
-            user: user.name,
-            status,
-            officeCode: user.office?.code ?? null,
-            note,
-          },
-        });
-      } catch (error) {
-        console.warn("Failed to send notification", error);
-      }
-    },
-    [token, user],
-  );
-
-  const performAction = useCallback(
-    async (path: string) => {
-      if (!token || !user) return false;
-      const response = await fetch(withApiPath(path), {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "API request failed");
-      }
-      return true;
-    },
-    [token, user],
-  );
-
-  const runAttendanceAction = useCallback(
-    async (action: "enter" | "exit", mode: "manual" | "auto") => {
-      if (!user || pendingAction) return false;
-
-      setPendingAction(action);
-
-      try {
-        await performAction(`/users/${user.id}/${action}`);
-        await notifyStatus(action === "enter" ? "入室" : "退室");
-        await fetchData();
-        return true;
-      } catch (error) {
-        console.error(`Failed to ${action}`, error);
-        if (mode === "manual") {
-          Alert.alert(
-            action === "enter" ? "入室に失敗しました" : "退室に失敗しました",
-            "再度お試しください。",
-          );
-        }
-        return false;
-      } finally {
-        setPendingAction(null);
-      }
-    },
-    [fetchData, notifyStatus, pendingAction, performAction, user],
-  );
-
   useEffect(
     () =>
       onBackgroundAttendanceChanged(() => {
         void fetchData();
       }),
     [fetchData],
-  );
-
-  // クールダウンで保留された入退室を、表示中に定期的に再評価する
-  useFocusEffect(
-    useCallback(() => {
-      void reconcilePendingAttendance();
-      const intervalId = setInterval(() => {
-        void reconcilePendingAttendance();
-      }, 30_000);
-      return () => clearInterval(intervalId);
-    }, []),
   );
 
   useEffect(() => {
@@ -202,36 +121,6 @@ export const HomeScreen: React.FC = () => {
       setLocationMessage(`${user.office.name} はまだ自動入退室の対象外です。`);
   }, [user?.office]);
 
-  const handleEnter = useCallback(async () => {
-    await runAttendanceAction("enter", "manual");
-  }, [runAttendanceAction]);
-
-  const handleExit = useCallback(async () => {
-    await runAttendanceAction("exit", "manual");
-  }, [runAttendanceAction]);
-
-  const handleSaveNote = useCallback(
-    async (userId: number, note: string) => {
-      if (!token) return;
-      try {
-        const api = createUsersApi(token);
-        await api.usersIdPatch({ id: userId, usersIdPatchRequest: { note } });
-        if (user && user.id === userId) {
-          setUserState({ ...user, note });
-          const trimmed = note.trim();
-          if (trimmed) {
-            await notifyStatus("メモを追加", trimmed);
-          }
-        }
-        await fetchData();
-      } catch (error) {
-        console.error("Failed to save note", error);
-        Alert.alert("保存に失敗しました", "メモの保存に失敗しました。");
-      }
-    },
-    [fetchData, notifyStatus, setUserState, token, user],
-  );
-
   const handleLogout = useCallback(async () => {
     await signOut();
   }, [signOut]);
@@ -264,7 +153,7 @@ export const HomeScreen: React.FC = () => {
   }, [signOut, user]);
 
   const enteredCount = useMemo(() => enteredUsers.length, [enteredUsers]);
-  const refreshDisabled = refreshing || pendingAction !== null;
+  const refreshDisabled = refreshing;
   type SymbolName = React.ComponentProps<typeof SymbolView>["name"];
 
   const renderSymbol = (
@@ -309,12 +198,6 @@ export const HomeScreen: React.FC = () => {
 
       <StatusTitle entered={entered} />
       <Text style={styles.locationStatus}>{locationMessage}</Text>
-      <EnterExitButtons
-        entered={entered}
-        onEnter={handleEnter}
-        onExit={handleExit}
-        disabled={pendingAction !== null}
-      />
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{user.office.name}</Text>
@@ -328,9 +211,7 @@ export const HomeScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <EnteredUsersList
-        me={user}
         users={enteredUsers}
-        onSaveNote={handleSaveNote}
         header={listHeader}
         contentContainerStyle={styles.listContent}
       />

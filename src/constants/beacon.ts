@@ -17,9 +17,3 @@ export const getOfficeBeacon = (
   office?: { code?: string | null } | null
 ): OfficeBeacon | null =>
   (office?.code && OFFICE_BEACON_BY_CODE[office.code]) || null;
-
-/**
- * チャタリング防止: 直前の入退室から この時間内は反対方向のイベントを即時処理せず保留する。
- * 保留分はアプリ表示中の定期チェックや次のイベントで再評価される。
- */
-export const MIN_TRANSITION_INTERVAL_MS = 2 * 60 * 1000;
