@@ -4,6 +4,7 @@ import {
   Modal,
   Platform,
   StyleSheet,
+  Switch,
   Text,
   TouchableWithoutFeedback,
   View,
@@ -23,6 +24,8 @@ type Props = {
   refreshing: boolean;
   onLogout: () => void;
   onDelete: () => void;
+  testMode: boolean;
+  onToggleTestMode: (enabled: boolean) => void;
 };
 
 export const UserSidebar: React.FC<Props> = ({
@@ -34,6 +37,8 @@ export const UserSidebar: React.FC<Props> = ({
   refreshing,
   onLogout,
   onDelete,
+  testMode,
+  onToggleTestMode,
 }) => {
   if (!user) return null;
 
@@ -88,6 +93,15 @@ export const UserSidebar: React.FC<Props> = ({
                 )}
                 fullWidth
               />
+              <View style={styles.testModeRow}>
+                <View style={styles.testModeText}>
+                  <Text style={styles.testModeTitle}>テストモード</Text>
+                  <Text style={styles.testModeHint}>
+                    オンの間は Discord に通知せず、このアプリの通知で代用します
+                  </Text>
+                </View>
+                <Switch value={testMode} onValueChange={onToggleTestMode} />
+              </View>
               <Button
                 title="ログアウト"
                 variant="secondary"
@@ -131,6 +145,24 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     shadowRadius: 12,
     elevation: 5,
+  },
+  testModeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  testModeText: {
+    flex: 1,
+    gap: 2,
+  },
+  testModeTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  testModeHint: {
+    fontSize: 12,
+    color: colors.mutedText,
   },
   header: {
     flexDirection: "row",

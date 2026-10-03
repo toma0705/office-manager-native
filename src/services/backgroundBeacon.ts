@@ -1,6 +1,8 @@
 import type { UserSafe } from "@office-manager/api-client";
 import * as Location from "expo-location";
 import { API_BASE_URL, withApiPath } from "@/constants/config";
+import { showLocalNotification } from "@/services/localNotification";
+import { testModeStorage } from "@/storage/testModeStorage";
 import {
   backgroundAttendanceStorage,
   createBackgroundAttendanceSnapshot,
@@ -59,17 +61,26 @@ const postAttendanceAction = async (
     throw new Error(text || `Failed to ${action} in background`);
   }
 
-  await fetch(`${API_BASE_URL}/notify`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user: snapshot.userName,
-      status: action === "enter" ? "入室" : "退室",
-      officeCode: snapshot.officeCode,
-    }),
-  }).catch(error => {
-    console.warn("Failed to notify background attendance", error);
-  });
+  const status = action === "enter" ? "入室" : "退室";
+  if (await testModeStorage.get()) {
+    // テストモード: Discord には送らず、端末のローカル通知で代用する
+    await showLocalNotification(
+      `【テスト】${status}を検知`,
+      `${snapshot.userName} さんが ${status} しました（Discordには送信していません）`
+    );
+  } else {
+    await fetch(`${API_BASE_URL}/notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user: snapshot.userName,
+        status,
+        officeCode: snapshot.officeCode,
+      }),
+    }).catch(error => {
+      console.warn("Failed to notify background attendance", error);
+    });
+  }
 
   await backgroundAttendanceStorage.patch({ entered: action === "enter" });
   attendanceListeners.forEach(listener => listener(action));
