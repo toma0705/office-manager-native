@@ -17,6 +17,18 @@ import {
 } from "../../modules/office-beacon/src";
 
 const BEACON_REGION_ID = "office-manager-beacon";
+const LEGACY_GEOFENCING_TASK = "office-manager-background-geofence";
+
+/** GPS ジオフェンス時代に登録されたタスクが端末に残っていれば解除する（移行用） */
+const stopLegacyGeofencing = async () => {
+  try {
+    if (await Location.hasStartedGeofencingAsync(LEGACY_GEOFENCING_TASK)) {
+      await Location.stopGeofencingAsync(LEGACY_GEOFENCING_TASK);
+    }
+  } catch (error) {
+    console.warn("Failed to stop legacy geofencing", error);
+  }
+};
 
 type AttendanceListener = (action: "enter" | "exit") => void;
 const attendanceListeners = new Set<AttendanceListener>();
@@ -188,6 +200,8 @@ export const ensureBackgroundAttendanceMonitoring = async (
   if (backgroundStatus !== "granted") {
     return { started: false, reason: "background-denied" as const };
   }
+
+  await stopLegacyGeofencing();
 
   const started = await startMonitoring({
     ...snapshot.beacon,
