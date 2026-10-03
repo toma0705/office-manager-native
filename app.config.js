@@ -21,7 +21,7 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.toma0705.officemanager",
-    buildNumber: "2",
+    buildNumber: "4",
     icon: "./assets/office-manager-icon.png",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
@@ -87,6 +87,9 @@ const config = {
     ],
   ],
   extra: {
+    // Release ビルドでは .env が JS バンドルに埋め込まれないため、
+    // ネイティブの app.config 経由で API の接続先を渡す（値は .env のまま）
+    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
     eas: {
       projectId: "98a48421-8173-486e-92b8-71d9569e2b77",
     },
