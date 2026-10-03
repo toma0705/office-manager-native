@@ -1,7 +1,6 @@
 import type { UserSafe } from "@office-manager/api-client";
 import * as Location from "expo-location";
 import { API_BASE_URL, withApiPath } from "@/constants/config";
-import { MIN_TRANSITION_INTERVAL_MS } from "@/constants/beacon";
 import {
   backgroundAttendanceStorage,
   createBackgroundAttendanceSnapshot,
@@ -72,43 +71,19 @@ const postAttendanceAction = async (
     console.warn("Failed to notify background attendance", error);
   });
 
-  await backgroundAttendanceStorage.patch({
-    entered: action === "enter",
-    lastTransitionAt: Date.now(),
-    pendingState: null,
-  });
+  await backgroundAttendanceStorage.patch({ entered: action === "enter" });
   attendanceListeners.forEach(listener => listener(action));
 };
 
 let processing: Promise<void> = Promise.resolve();
 
-/**
- * ビーコン状態を入退室に反映する。
- * - 既に同じ状態なら何もしない
- * - 直前の入退室から MIN_TRANSITION_INTERVAL_MS 以内なら保留（チャタリング防止）
- * - source=refresh の "outside" は問い合わせ結果にすぎないため退室扱いしない
- *   （手動入室した人を、ビーコン圏外でのアプリ起動で勝手に退室させないため）
- */
-const applyBeaconState = async (
-  state: BeaconRegionState,
-  source: "event" | "refresh"
-) => {
+/** ビーコン状態を入退室に反映する。既に同じ状態なら何もしない。 */
+const applyBeaconState = async (state: BeaconRegionState) => {
   const snapshot = await backgroundAttendanceStorage.get();
   if (!snapshot) return;
 
   const action = state === "inside" ? "enter" : "exit";
-  if ((action === "enter") === snapshot.entered) {
-    if (snapshot.pendingState) {
-      await backgroundAttendanceStorage.patch({ pendingState: null });
-    }
-    return;
-  }
-  if (source === "refresh" && action === "exit") return;
-
-  if (Date.now() - snapshot.lastTransitionAt < MIN_TRANSITION_INTERVAL_MS) {
-    await backgroundAttendanceStorage.patch({ pendingState: state });
-    return;
-  }
+  if ((action === "enter") === snapshot.entered) return;
 
   try {
     await postAttendanceAction(snapshot, action);
@@ -117,21 +92,14 @@ const applyBeaconState = async (
   }
 };
 
-const enqueue = (state: BeaconRegionState, source: "event" | "refresh") => {
-  processing = processing.then(() => applyBeaconState(state, source));
+const enqueue = (state: BeaconRegionState) => {
+  processing = processing.then(() => applyBeaconState(state));
   return processing;
-};
-
-/** クールダウンで保留されていた状態を、時間が経ったあとに再評価する */
-export const reconcilePendingAttendance = async () => {
-  const snapshot = await backgroundAttendanceStorage.get();
-  if (!snapshot?.pendingState) return;
-  await enqueue(snapshot.pendingState, "event");
 };
 
 // モジュール読み込み時（バックグラウンド起動時を含む）にリスナーを登録する
 addRegionStateListener(event => {
-  void enqueue(event.state, event.source);
+  void enqueue(event.state);
 });
 
 // 終了状態から OS に起こされた場合、監視は OS 側に残っている。
@@ -139,15 +107,6 @@ addRegionStateListener(event => {
 void backgroundAttendanceStorage.get().then(snapshot => {
   if (snapshot) void refreshState();
 });
-
-const mergeSnapshot = async (snapshot: BackgroundAttendanceSnapshot) => {
-  const current = await backgroundAttendanceStorage.get();
-  await backgroundAttendanceStorage.set({
-    ...snapshot,
-    lastTransitionAt: current?.lastTransitionAt ?? 0,
-    pendingState: current?.pendingState ?? null,
-  });
-};
 
 export const syncBackgroundAttendanceSnapshot = async (
   token: string | null,
@@ -158,7 +117,7 @@ export const syncBackgroundAttendanceSnapshot = async (
     await stopBackgroundAttendanceMonitoring();
     return;
   }
-  await mergeSnapshot(snapshot);
+  await backgroundAttendanceStorage.set(snapshot);
 };
 
 export const stopBackgroundAttendanceMonitoring = async () => {
@@ -195,7 +154,7 @@ export const ensureBackgroundAttendanceMonitoring = async (
       .status;
   }
 
-  await mergeSnapshot(snapshot);
+  await backgroundAttendanceStorage.set(snapshot);
 
   if (backgroundStatus !== "granted") {
     return { started: false, reason: "background-denied" as const };
