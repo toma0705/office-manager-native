@@ -16,7 +16,6 @@ import {
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { EnteredUser } from "@office-manager/api-client";
-import * as Location from "expo-location";
 import { StatusTitle } from "@/components/home/StatusTitle";
 import { EnterExitButtons } from "@/components/home/EnterExitButtons";
 import { EnteredUsersList } from "@/components/home/EnteredUsersList";
@@ -27,16 +26,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { createNotificationsApi, createUsersApi } from "@/api/client";
 import { withApiPath } from "@/constants/config";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
-import { ensureBackgroundAttendanceMonitoring } from "@/services/backgroundGeofencing";
+import {
+  ensureBackgroundAttendanceMonitoring,
+  onBackgroundAttendanceChanged,
+  reconcilePendingAttendance,
+} from "@/services/backgroundBeacon";
 import { colors } from "@/theme/colors";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
-import {
-  calculateDistanceMeters,
-  getOfficeLocation,
-  shouldAutoEnter,
-  shouldAutoExit,
-} from "@/utils/location";
+import { getOfficeBeacon } from "@/constants/beacon";
 
 export const HomeScreen: React.FC = () => {
   const navigation =
@@ -49,8 +47,7 @@ export const HomeScreen: React.FC = () => {
     null,
   );
   const [locationMessage, setLocationMessage] =
-    useState("位置情報を確認しています...");
-  const autoActionInFlightRef = useRef(false);
+    useState("ビーコンを確認しています...");
   const backgroundSetupAttemptedRef = useRef(false);
 
   const entered = Boolean(user?.entered);
@@ -118,9 +115,6 @@ export const HomeScreen: React.FC = () => {
       if (!user || pendingAction) return false;
 
       setPendingAction(action);
-      if (mode === "auto") {
-        autoActionInFlightRef.current = true;
-      }
 
       try {
         await performAction(`/users/${user.id}/${action}`);
@@ -138,116 +132,28 @@ export const HomeScreen: React.FC = () => {
         return false;
       } finally {
         setPendingAction(null);
-        if (mode === "auto") {
-          autoActionInFlightRef.current = false;
-        }
       }
     },
     [fetchData, notifyStatus, pendingAction, performAction, user],
   );
 
-  const evaluateAutoAttendance = useCallback(async () => {
-    if (!user || !token || pendingAction || autoActionInFlightRef.current) {
-      return;
-    }
-
-    const officeLocation = getOfficeLocation(user.office);
-    if (!officeLocation) {
-      setLocationMessage(`${user.office.name} はまだ自動入退室の対象外です。`);
-      return;
-    }
-
-    try {
-      const permission = await Location.getForegroundPermissionsAsync();
-      let status = permission.status;
-
-      if (status !== "granted" && permission.canAskAgain) {
-        const requested = await Location.requestForegroundPermissionsAsync();
-        status = requested.status;
-      }
-
-      if (status !== "granted") {
-        setLocationMessage(
-          "位置情報が未許可のため、自動入退室は停止しています。",
-        );
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const distanceMeters = calculateDistanceMeters(
-        {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        },
-        officeLocation,
-      );
-
-      if (!entered && shouldAutoEnter(distanceMeters, officeLocation)) {
-        setLocationMessage("オフィス到着を検知しました。自動で入室します。");
-        const succeeded = await runAttendanceAction("enter", "auto");
-        setLocationMessage(
-          succeeded
-            ? `オフィスから約${Math.round(
-                distanceMeters,
-              )}mです。自動で入室しました。`
-            : `オフィスから約${Math.round(
-                distanceMeters,
-              )}mですが、自動入室に失敗しました。`,
-        );
-        return;
-      }
-
-      if (entered && shouldAutoExit(distanceMeters, officeLocation)) {
-        setLocationMessage("オフィス離脱を検知しました。自動で退室します。");
-        const succeeded = await runAttendanceAction("exit", "auto");
-        setLocationMessage(
-          succeeded
-            ? `オフィスから約${Math.round(
-                distanceMeters,
-              )}m離れたため、自動で退室しました。`
-            : `オフィスから約${Math.round(
-                distanceMeters,
-              )}mですが、自動退室に失敗しました。`,
-        );
-        return;
-      }
-
-      setLocationMessage(
-        entered
-          ? `オフィスから約${Math.round(
-              distanceMeters,
-            )}mです。十分に離れると自動退室します。`
-          : `オフィスから約${Math.round(
-              distanceMeters,
-            )}mです。圏内に入ると自動入室します。`,
-      );
-    } catch (error) {
-      console.error("Failed to evaluate auto attendance", error);
-      setLocationMessage("位置情報の取得に失敗しました。");
-    }
-  }, [entered, pendingAction, runAttendanceAction, token, user]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void fetchData();
-    }, [fetchData]),
+  useEffect(
+    () =>
+      onBackgroundAttendanceChanged(() => {
+        void fetchData();
+      }),
+    [fetchData],
   );
 
+  // クールダウンで保留された入退室を、表示中に定期的に再評価する
   useFocusEffect(
     useCallback(() => {
-      void evaluateAutoAttendance();
-
+      void reconcilePendingAttendance();
       const intervalId = setInterval(() => {
-        void evaluateAutoAttendance();
-      }, 5_000);
-
-      return () => {
-        clearInterval(intervalId);
-      };
-    }, [evaluateAutoAttendance]),
+        void reconcilePendingAttendance();
+      }, 30_000);
+      return () => clearInterval(intervalId);
+    }, []),
   );
 
   useEffect(() => {
@@ -256,22 +162,27 @@ export const HomeScreen: React.FC = () => {
 
     const setup = async () => {
       const result = await ensureBackgroundAttendanceMonitoring(token, user);
-      if (result.started) return;
+      if (result.started) {
+        setLocationMessage(
+          "オフィスのビーコンを監視中です。圏内に入ると自動で入退室します。",
+        );
+        return;
+      }
 
       switch (result.reason) {
         case "background-denied":
           setLocationMessage(
-            "バックグラウンド位置情報が未許可のため、アプリ表示中のみ自動判定します。",
+            "位置情報が「常に許可」でないため、ビーコンの自動検知を開始できません。設定アプリで「常に」に変更してください。",
           );
           break;
         case "foreground-denied":
           setLocationMessage(
-            "位置情報が未許可のため、バックグラウンド監視を開始できません。",
+            "位置情報が未許可のため、ビーコンの自動検知を開始できません。",
           );
           break;
-        case "task-manager-unavailable":
+        case "beacon-unavailable":
           setLocationMessage(
-            "この実行環境ではバックグラウンド監視を利用できません。",
+            "この実行環境ではビーコン検知を利用できません（Development Build が必要です）。",
           );
           break;
         case "unsupported-office":
@@ -287,7 +198,7 @@ export const HomeScreen: React.FC = () => {
 
   useEffect(() => {
     if (!user?.office) return;
-    if (!getOfficeLocation(user.office))
+    if (!getOfficeBeacon(user.office))
       setLocationMessage(`${user.office.name} はまだ自動入退室の対象外です。`);
   }, [user?.office]);
 
