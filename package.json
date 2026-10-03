@@ -1,7 +1,7 @@
 {
   "name": "office-manager-native",
   "license": "0BSD",
-  "version": "1.1.0",
+  "version": "3.0.0",
   "main": "index.ts",
   "scripts": {
     "preinstall": "node scripts/setup-private-deps.js",

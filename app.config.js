@@ -3,7 +3,7 @@ const config = {
   name: "入退室管理",
   owner: "toma0705",
   slug: "office-manager-native",
-  version: "1.1.0",
+  version: "3.0.0",
   orientation: "portrait",
   icon: "./assets/office-manager-icon.png",
   userInterfaceStyle: "light",
@@ -25,6 +25,9 @@ const config = {
     icon: "./assets/office-manager-icon.png",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      // ビーコン領域監視に必要なのは location のみ。
+      // processing を残すと BGTaskSchedulerPermittedIdentifiers が必須になりアップロードが拒否される
+      UIBackgroundModes: ["location"],
       NSFaceIDUsageDescription:
         "Face IDを使用してアカウントに安全にログインします。",
       NSLocationAlwaysAndWhenInUseUsageDescription:
