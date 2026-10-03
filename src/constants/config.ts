@@ -56,7 +56,7 @@ const resolveExpoHostBaseUrl = () => {
 };
 
 const DEFAULT_DEV_BASE_URL = "http://localhost:3000/api";
-const DEFAULT_PROD_BASE_URL = "https://api.example.com";
+const DEFAULT_PROD_BASE_URL = "https://okayama-office-manager.vercel.app/api";
 
 export const API_BASE_URL =
   resolveEnvBaseUrl() ??
