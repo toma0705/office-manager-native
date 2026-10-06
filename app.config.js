@@ -21,7 +21,7 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.toma0705.officemanager",
-    buildNumber: "4",
+    buildNumber: "5",
     icon: "./assets/office-manager-icon.png",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
