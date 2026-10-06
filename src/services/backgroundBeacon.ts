@@ -2,6 +2,7 @@ import type { UserSafe } from "@office-manager/api-client";
 import * as Location from "expo-location";
 import { API_BASE_URL, withApiPath } from "@/constants/config";
 import { showLocalNotification } from "@/services/localNotification";
+import { beaconLogStorage } from "@/storage/beaconLogStorage";
 import { testModeStorage } from "@/storage/testModeStorage";
 import {
   backgroundAttendanceStorage,
@@ -91,15 +92,25 @@ let processing: Promise<void> = Promise.resolve();
 /** ビーコン状態を入退室に反映する。既に同じ状態なら何もしない。 */
 const applyBeaconState = async (state: BeaconRegionState) => {
   const snapshot = await backgroundAttendanceStorage.get();
-  if (!snapshot) return;
+  if (!snapshot) {
+    void beaconLogStorage.append(`${state}: 無視(ログイン情報なし)`);
+    return;
+  }
 
   const action = state === "inside" ? "enter" : "exit";
-  if ((action === "enter") === snapshot.entered) return;
+  if ((action === "enter") === snapshot.entered) {
+    void beaconLogStorage.append(
+      `${state}: 無視(すでに${snapshot.entered ? "入室" : "退室"}済み)`
+    );
+    return;
+  }
 
   try {
     await postAttendanceAction(snapshot, action);
+    void beaconLogStorage.append(`${state}: ${action === "enter" ? "入室" : "退室"}を記録`);
   } catch (error) {
     console.warn("Failed to handle beacon event", error);
+    void beaconLogStorage.append(`${state}: 記録に失敗 ${String(error).slice(0, 80)}`);
   }
 };
 
@@ -110,13 +121,17 @@ const enqueue = (state: BeaconRegionState) => {
 
 // モジュール読み込み時（バックグラウンド起動時を含む）にリスナーを登録する
 addRegionStateListener(event => {
+  void beaconLogStorage.append(`検知: ${event.state} (${event.source})`);
   void enqueue(event.state);
 });
 
 // 終了状態から OS に起こされた場合、監視は OS 側に残っている。
 // 現在の状態を問い合わせて取りこぼしたイベントを補完する。
 void backgroundAttendanceStorage.get().then(snapshot => {
-  if (snapshot) void refreshState();
+  if (snapshot) {
+    void beaconLogStorage.append("起動: 状態を問い合わせ");
+    void refreshState();
+  }
 });
 
 export const syncBackgroundAttendanceSnapshot = async (
@@ -168,6 +183,7 @@ export const ensureBackgroundAttendanceMonitoring = async (
   await backgroundAttendanceStorage.set(snapshot);
 
   if (backgroundStatus !== "granted") {
+    void beaconLogStorage.append(`監視を開始できません(位置情報: ${backgroundStatus})`);
     return { started: false, reason: "background-denied" as const };
   }
 
@@ -179,5 +195,6 @@ export const ensureBackgroundAttendanceMonitoring = async (
   });
   if (!started) return { started: false, reason: "beacon-unavailable" as const };
 
+  void beaconLogStorage.append("監視を開始");
   return { started: true as const };
 };

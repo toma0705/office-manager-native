@@ -26,6 +26,7 @@ type Props = {
   onDelete: () => void;
   testMode: boolean;
   onToggleTestMode: (enabled: boolean) => void;
+  onShowLog: () => void;
 };
 
 export const UserSidebar: React.FC<Props> = ({
@@ -39,6 +40,7 @@ export const UserSidebar: React.FC<Props> = ({
   onDelete,
   testMode,
   onToggleTestMode,
+  onShowLog,
 }) => {
   if (!user) return null;
 
@@ -102,6 +104,12 @@ export const UserSidebar: React.FC<Props> = ({
                 </View>
                 <Switch value={testMode} onValueChange={onToggleTestMode} />
               </View>
+              <Button
+                title="ビーコン検知ログ"
+                variant="secondary"
+                onPress={onShowLog}
+                fullWidth
+              />
               <Button
                 title="ログアウト"
                 variant="secondary"

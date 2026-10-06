@@ -33,6 +33,10 @@ import {
   ensureNotificationPermission,
   showLocalNotification,
 } from "@/services/localNotification";
+import {
+  beaconLogStorage,
+  formatBeaconLog,
+} from "@/storage/beaconLogStorage";
 import { testModeStorage } from "@/storage/testModeStorage";
 import { colors } from "@/theme/colors";
 import { SymbolView } from "expo-symbols";
@@ -149,6 +153,10 @@ export const HomeScreen: React.FC = () => {
     }
   }, []);
 
+  const handleShowLog = useCallback(async () => {
+    Alert.alert("ビーコン検知ログ", formatBeaconLog(await beaconLogStorage.get()));
+  }, []);
+
   const handleLogout = useCallback(async () => {
     await signOut();
   }, [signOut]);
@@ -260,6 +268,7 @@ export const HomeScreen: React.FC = () => {
         onDelete={handleDeleteAccount}
         testMode={testMode}
         onToggleTestMode={handleToggleTestMode}
+        onShowLog={handleShowLog}
       />
     </View>
   );
