@@ -80,6 +80,10 @@ void setup() {
   Serial.print("iBeacon advertising:");
   for (size_t i = 0; i < sizeof(ad); i++) Serial.printf(" %02X", ad[i]);
   Serial.println();
+  // 実際に効いている送信出力（ESP_PWR_LVL_P9 = 7 が +9dBm）
+  Serial.printf("TX power: adv=%d default=%d (7 = +9dBm)\n",
+                esp_ble_tx_power_get(ESP_BLE_PWR_TYPE_ADV),
+                esp_ble_tx_power_get(ESP_BLE_PWR_TYPE_DEFAULT));
 }
 
 void loop() { delay(1000); }
