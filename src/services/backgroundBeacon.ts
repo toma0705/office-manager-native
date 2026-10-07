@@ -87,6 +87,25 @@ const postAttendanceAction = async (
   attendanceListeners.forEach(listener => listener(action));
 };
 
+/**
+ * サーバー上の在室状態を取得する。夜間の強制退室などで端末の記録とずれるため、
+ * 判定はサーバーを正とする。取得できなければ null。
+ */
+const fetchServerEntered = async (
+  snapshot: BackgroundAttendanceSnapshot
+): Promise<boolean | null> => {
+  try {
+    const response = await fetch(withApiPath("/users/me"), {
+      headers: { Authorization: `Bearer ${snapshot.token}` },
+    });
+    if (!response.ok) return null;
+    const body = await response.json();
+    return typeof body?.user?.entered === "boolean" ? body.user.entered : null;
+  } catch {
+    return null;
+  }
+};
+
 let processing: Promise<void> = Promise.resolve();
 
 /** ビーコン状態を入退室に反映する。既に同じ状態なら何もしない。 */
@@ -95,6 +114,15 @@ const applyBeaconState = async (state: BeaconRegionState) => {
   if (!snapshot) {
     void beaconLogStorage.append(`${state}: 無視(ログイン情報なし)`);
     return;
+  }
+
+  const serverEntered = await fetchServerEntered(snapshot);
+  if (serverEntered !== null && serverEntered !== snapshot.entered) {
+    await backgroundAttendanceStorage.patch({ entered: serverEntered });
+    snapshot.entered = serverEntered;
+    void beaconLogStorage.append(
+      `端末の記録をサーバーに合わせて修正(${serverEntered ? "入室中" : "退室済み"})`
+    );
   }
 
   const action = state === "inside" ? "enter" : "exit";
