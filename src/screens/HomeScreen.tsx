@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import {
   Alert,
+  AppState,
   Platform,
   StyleSheet,
   Text,
@@ -83,6 +84,17 @@ export const HomeScreen: React.FC = () => {
         void fetchData();
       }),
     [fetchData],
+  );
+
+  // 画面を開いたとき・アプリが前面に戻ったときに最新の在室状況を取得する
+  useFocusEffect(
+    useCallback(() => {
+      void fetchData();
+      const subscription = AppState.addEventListener("change", state => {
+        if (state === "active") void fetchData();
+      });
+      return () => subscription.remove();
+    }, [fetchData]),
   );
 
   useEffect(() => {
