@@ -62,6 +62,7 @@ const config = {
     "expo-updates",
     "expo-secure-store",
     "./plugins/withPodsDeploymentTarget",
+    "./plugins/withSceneLifecycle",
     [
       "expo-location",
       {
