@@ -5,7 +5,11 @@ import { getOfficeBeacon, type OfficeBeacon } from "@/constants/beacon";
 const BACKGROUND_ATTENDANCE_KEY = "office-manager/background-attendance";
 
 export type BackgroundAttendanceSnapshot = {
+  /** ログイン用トークン(7日で失効)。専用トークンがないときだけ使う */
   token: string;
+  /** 自動入退室専用トークン(1年間有効)。バックグラウンドの入退室ではこちらを優先する */
+  attendanceToken?: string;
+  attendanceTokenIssuedAt?: number;
   userId: number;
   userName: string;
   officeCode: string;

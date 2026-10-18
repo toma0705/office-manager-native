@@ -27,6 +27,32 @@ export const onBackgroundAttendanceChanged = (listener: AttendanceListener) => {
   };
 };
 
+// 専用トークンは1日に1回まで発行し直す（期限を延ばすため、アプリを開いたときに更新する）
+const ATTENDANCE_TOKEN_REFRESH_MS = 24 * 60 * 60 * 1000;
+
+/** バックグラウンドの入退室に使うトークン。専用トークンがなければログイン用を使う */
+const backgroundToken = (snapshot: BackgroundAttendanceSnapshot) =>
+  snapshot.attendanceToken ?? snapshot.token;
+
+/**
+ * 自動入退室専用トークン(1年間有効)を発行してもらう。ログイン用トークンは7日で失効し、
+ * アプリをほとんど開かない使い方ではバックグラウンドの入退室が失敗するため。
+ */
+const issueAttendanceToken = async (loginToken: string): Promise<string | null> => {
+  try {
+    const response = await fetch(withApiPath("/users/attendance-token"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${loginToken}` },
+    });
+    if (!response.ok) return null;
+    const body = await response.json();
+    return typeof body?.token === "string" ? body.token : null;
+  } catch (error) {
+    console.warn("Failed to issue attendance token", error);
+    return null;
+  }
+};
+
 const postAttendanceAction = async (
   snapshot: BackgroundAttendanceSnapshot,
   action: "enter" | "exit"
@@ -36,7 +62,7 @@ const postAttendanceAction = async (
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${snapshot.token}`,
+        Authorization: `Bearer ${backgroundToken(snapshot)}`,
       },
     }
   );
@@ -71,12 +97,12 @@ const fetchServerEntered = async (
   snapshot: BackgroundAttendanceSnapshot
 ): Promise<boolean | null> => {
   try {
-    const response = await fetch(withApiPath("/users/me"), {
-      headers: { Authorization: `Bearer ${snapshot.token}` },
+    const response = await fetch(withApiPath("/users/attendance-status"), {
+      headers: { Authorization: `Bearer ${backgroundToken(snapshot)}` },
     });
     if (!response.ok) return null;
     const body = await response.json();
-    return typeof body?.user?.entered === "boolean" ? body.user.entered : null;
+    return typeof body?.entered === "boolean" ? body.entered : null;
   } catch {
     return null;
   }
@@ -130,7 +156,27 @@ export const syncBackgroundAttendanceSnapshot = async (
     await stopBackgroundAttendanceMonitoring();
     return;
   }
-  await backgroundAttendanceStorage.set(snapshot);
+
+  // 同じユーザーの専用トークンが新しければ使い回し、古ければ発行し直す。
+  // 発行に失敗したとき(通信できないなど)は、手元の専用トークンを使い続ける。
+  const current = await backgroundAttendanceStorage.get();
+  const kept =
+    current?.userId === snapshot.userId && current.attendanceToken
+      ? {
+          attendanceToken: current.attendanceToken,
+          attendanceTokenIssuedAt: current.attendanceTokenIssuedAt,
+        }
+      : {};
+  const isFresh =
+    kept.attendanceToken &&
+    Date.now() - (kept.attendanceTokenIssuedAt ?? 0) < ATTENDANCE_TOKEN_REFRESH_MS;
+  const issued = isFresh ? null : await issueAttendanceToken(snapshot.token);
+
+  await backgroundAttendanceStorage.set({
+    ...snapshot,
+    ...kept,
+    ...(issued ? { attendanceToken: issued, attendanceTokenIssuedAt: Date.now() } : {}),
+  });
 };
 
 export const stopBackgroundAttendanceMonitoring = async () => {
@@ -167,7 +213,7 @@ export const ensureBackgroundAttendanceMonitoring = async (
       .status;
   }
 
-  await backgroundAttendanceStorage.set(snapshot);
+  await syncBackgroundAttendanceSnapshot(token, user);
 
   if (backgroundStatus !== "granted") {
     return { started: false, reason: "background-denied" as const };
