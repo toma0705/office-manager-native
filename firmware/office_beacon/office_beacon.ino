@@ -12,10 +12,11 @@
 #define BEACON_MAJOR 1
 #define BEACON_MINOR 1
 
-// 1m 地点での実測 RSSI (dBm)。アプリの入退室判定（領域監視）には使われないが、
-// 距離推定(accuracy)の基準になる。P9 設定なら -55〜-60 付近。
-// iPhone + nRF Connect 等で 1m 離して RSSI を数十回平均して決める。
-#define MEASURED_POWER -59
+// 1m 地点での RSSI (dBm)。アプリの入退室判定（領域監視）には使われないが、
+// 距離推定(accuracy)の基準になる。送信出力を変えたら合わせて変える。
+// 目安: P9 で -59 付近、N12 はそこから 21dB 低い -80 付近（推定値）。
+// 正確にするには iPhone + nRF Connect 等で 1m 離して RSSI を数十回平均して決める。
+#define MEASURED_POWER -80
 
 // 送信出力。検知範囲はここで調整する（下げるほど狭くなる）。
 // ESP_PWR_LVL_N12 / N9 / N6 / N3 / N0 / P3 / P6 / P9 = -12〜+9dBm（3dB 刻み）
