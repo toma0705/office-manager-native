@@ -40,7 +40,6 @@ export const HomeScreen: React.FC = () => {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, token, signOut, setUserState } = useAuth();
   const [enteredUsers, setEnteredUsers] = useState<EnteredUser[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [locationMessage, setLocationMessage] =
     useState("ビーコンを確認しています...");
@@ -50,7 +49,6 @@ export const HomeScreen: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     if (!token) return;
-    setRefreshing(true);
     try {
       const api = createUsersApi(token);
       const response = await api.usersMeGet();
@@ -63,8 +61,6 @@ export const HomeScreen: React.FC = () => {
         "ユーザー情報の取得に失敗しました。ログインし直してください。",
         [{ text: "OK", onPress: () => void signOut() }],
       );
-    } finally {
-      setRefreshing(false);
     }
   }, [setUserState, signOut, token]);
 
@@ -165,7 +161,6 @@ export const HomeScreen: React.FC = () => {
   }, [signOut, user]);
 
   const enteredCount = useMemo(() => enteredUsers.length, [enteredUsers]);
-  const refreshDisabled = refreshing;
   type SymbolName = React.ComponentProps<typeof SymbolView>["name"];
 
   const renderSymbol = (
@@ -232,9 +227,6 @@ export const HomeScreen: React.FC = () => {
         visible={isSidebarOpen}
         user={user}
         onClose={() => setSidebarOpen(false)}
-        onRefresh={() => void fetchData()}
-        refreshDisabled={refreshDisabled}
-        refreshing={refreshing}
         onLogout={handleLogout}
         onDelete={handleDeleteAccount}
       />
