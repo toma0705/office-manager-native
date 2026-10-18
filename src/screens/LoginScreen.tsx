@@ -192,7 +192,6 @@ export const LoginScreen: React.FC = () => {
 
   const goRegister = () => navigation.navigate("Register");
   const goReset = () => navigation.navigate("ResetPasswordRequest");
-  const goUsers = () => navigation.navigate("Users");
 
   return (
     <>
@@ -230,7 +229,6 @@ export const LoginScreen: React.FC = () => {
             fullWidth
             disabled={loading}
           />
-          <LinkButton title="ユーザーリストを見る" onPress={goUsers} center />
           <LinkButton
             title="パスワードをお忘れの方はこちら"
             onPress={goReset}

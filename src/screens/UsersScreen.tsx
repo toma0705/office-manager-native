@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { OptionCardGroup } from "@/components/ui/OptionCardGroup";
 import { createOfficesApi, createUsersApi } from "@/api/client";
+import { useAuth } from "@/hooks/useAuth";
 import { colors } from "@/theme/colors";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import { sortOfficesByPriority } from "@/utils/offices";
@@ -18,12 +19,15 @@ export const UsersScreen: React.FC = () => {
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [offices, setOffices] = useState<Office[]>([]);
   const [selectedOffice, setSelectedOffice] = useState<string>("ALL");
+  const { token } = useAuth();
 
   const load = useCallback(async () => {
+    if (!token) return;
     try {
       const [usersApi, officesApi] = [createUsersApi(), createOfficesApi()];
       const [userList, officeList] = await Promise.all([
-        usersApi.usersGet(),
+        // ユーザー一覧はログイン必須。生成クライアントは認証ヘッダーを付けないため直接渡す
+        usersApi.usersGet({}, { headers: { Authorization: `Bearer ${token}` } }),
         officesApi.officesGet(),
       ]);
       setUsers(userList);
@@ -31,7 +35,7 @@ export const UsersScreen: React.FC = () => {
     } catch (error) {
       console.error("Failed to load users screen data", error);
     }
-  }, []);
+  }, [token]);
 
   useFocusEffect(
     useCallback(() => {
