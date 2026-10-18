@@ -30,15 +30,6 @@ import {
   ensureBackgroundAttendanceMonitoring,
   onBackgroundAttendanceChanged,
 } from "@/services/backgroundBeacon";
-import {
-  ensureNotificationPermission,
-  showLocalNotification,
-} from "@/services/localNotification";
-import {
-  beaconLogStorage,
-  formatBeaconLog,
-} from "@/storage/beaconLogStorage";
-import { testModeStorage } from "@/storage/testModeStorage";
 import { colors } from "@/theme/colors";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
@@ -53,7 +44,6 @@ export const HomeScreen: React.FC = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [locationMessage, setLocationMessage] =
     useState("ビーコンを確認しています...");
-  const [testMode, setTestMode] = useState(false);
   const backgroundSetupAttemptedRef = useRef(false);
 
   const entered = Boolean(user?.entered);
@@ -143,32 +133,6 @@ export const HomeScreen: React.FC = () => {
       setLocationMessage(`${user.office.name} はまだ自動入退室の対象外です。`);
   }, [user?.office]);
 
-  useEffect(() => {
-    void testModeStorage.get().then(setTestMode);
-  }, []);
-
-  const handleToggleTestMode = useCallback(async (enabled: boolean) => {
-    if (enabled && !(await ensureNotificationPermission())) {
-      Alert.alert(
-        "通知が許可されていません",
-        "テストモードでは端末の通知を使います。設定アプリでこのアプリの通知を許可してください。",
-      );
-      return;
-    }
-    setTestMode(enabled);
-    await testModeStorage.set(enabled);
-    if (enabled) {
-      await showLocalNotification(
-        "テストモードをオンにしました",
-        "入退室を検知すると、Discordではなくこの通知で知らせます",
-      );
-    }
-  }, []);
-
-  const handleShowLog = useCallback(async () => {
-    Alert.alert("ビーコン検知ログ", formatBeaconLog(await beaconLogStorage.get()));
-  }, []);
-
   const handleLogout = useCallback(async () => {
     await signOut();
   }, [signOut]);
@@ -246,11 +210,6 @@ export const HomeScreen: React.FC = () => {
 
       <StatusTitle entered={entered} />
       <Text style={styles.locationStatus}>{locationMessage}</Text>
-      {testMode ? (
-        <Text style={styles.locationStatus}>
-          🧪 テストモード中: Discord には通知しません
-        </Text>
-      ) : null}
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{user.office.name}</Text>
@@ -278,9 +237,6 @@ export const HomeScreen: React.FC = () => {
         refreshing={refreshing}
         onLogout={handleLogout}
         onDelete={handleDeleteAccount}
-        testMode={testMode}
-        onToggleTestMode={handleToggleTestMode}
-        onShowLog={handleShowLog}
       />
     </View>
   );
