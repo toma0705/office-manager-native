@@ -49,7 +49,10 @@ const postAttendanceAction = async (
   const status = action === "enter" ? "入室" : "退室";
   await fetch(`${API_BASE_URL}/notify`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${snapshot.token}`,
+    },
     body: JSON.stringify({
       user: snapshot.userName,
       status,
