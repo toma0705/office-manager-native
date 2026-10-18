@@ -17,6 +17,11 @@
 // iPhone + nRF Connect 等で 1m 離して RSSI を数十回平均して決める。
 #define MEASURED_POWER -59
 
+// 送信出力。検知範囲はここで調整する（下げるほど狭くなる）。
+// ESP_PWR_LVL_N12 / N9 / N6 / N3 / N0 / P3 / P6 / P9 = -12〜+9dBm（3dB 刻み）
+// 3dB 下げるごとに、届く距離はおおよそ 0.7〜0.8 倍になる（壁や人で変わるので現地で確認する）。
+#define TX_POWER_LEVEL ESP_PWR_LVL_N0
+
 // アドバタイズ間隔 (単位 0.625ms)。160 = 100ms。
 // 短いほど検知は速く確実だが消費電力が増える。常時給電なら 100ms 推奨。
 #define ADV_INTERVAL_UNITS 160
@@ -45,11 +50,10 @@ void setup() {
   Serial.begin(115200);
   BLEDevice::init("OfficeBeacon");
 
-  // 送信出力を最大 (+9dBm) に。アドバタイズ・スキャン応答・デフォルトの全てに設定する。
-  // 「40cm しか届かない」場合、既定の低出力や電源/アンテナ周りが原因のことが多い。
-  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, ESP_PWR_LVL_P9);
-  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN, ESP_PWR_LVL_P9);
-  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_P9);
+  // 送信出力をアドバタイズ・スキャン応答・デフォルトの全てに設定する
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, TX_POWER_LEVEL);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN, TX_POWER_LEVEL);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, TX_POWER_LEVEL);
 
   // Manufacturer Specific Data (iBeacon) の AD 構造: 長さ 26 バイト
   uint8_t ad[27];
@@ -80,8 +84,8 @@ void setup() {
   Serial.print("iBeacon advertising:");
   for (size_t i = 0; i < sizeof(ad); i++) Serial.printf(" %02X", ad[i]);
   Serial.println();
-  // 実際に効いている送信出力（ESP_PWR_LVL_P9 = 7 が +9dBm）
-  Serial.printf("TX power: adv=%d default=%d (7 = +9dBm)\n",
+  // 実際に効いている送信出力（0 = -12dBm 〜 7 = +9dBm、1 段階 3dB）
+  Serial.printf("TX power: adv=%d default=%d (0=-12dBm, 4=0dBm, 7=+9dBm)\n",
                 esp_ble_tx_power_get(ESP_BLE_PWR_TYPE_ADV),
                 esp_ble_tx_power_get(ESP_BLE_PWR_TYPE_DEFAULT));
 }
