@@ -134,7 +134,7 @@ export const HomeScreen: React.FC = () => {
   }, [signOut]);
 
   const handleDeleteAccount = useCallback(async () => {
-    if (!user) return;
+    if (!user || !token) return;
     Alert.alert(
       "確認",
       "本当にアカウントを削除しますか？この操作は元に戻せません。",
@@ -147,6 +147,7 @@ export const HomeScreen: React.FC = () => {
             try {
               const response = await fetch(withApiPath(`/users/${user.id}`), {
                 method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
               });
               if (!response.ok) throw new Error("Failed to delete account");
               await signOut({ forgetCredentials: true });
@@ -158,7 +159,7 @@ export const HomeScreen: React.FC = () => {
         },
       ],
     );
-  }, [signOut, user]);
+  }, [signOut, token, user]);
 
   const enteredCount = useMemo(() => enteredUsers.length, [enteredUsers]);
   type SymbolName = React.ComponentProps<typeof SymbolView>["name"];
