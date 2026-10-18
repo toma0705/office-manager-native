@@ -59,12 +59,13 @@ const postAttendanceAction = async (
     throw new Error(text || `Failed to ${action} in background`);
   }
 
+  const status = action === "enter" ? "入室" : "退室";
   await fetch(`${API_BASE_URL}/notify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       user: snapshot.userName,
-      status: action === "enter" ? "入室" : "退室",
+      status,
       officeCode: snapshot.officeCode,
     }),
   }).catch(error => {
@@ -75,12 +76,37 @@ const postAttendanceAction = async (
   attendanceListeners.forEach(listener => listener(action));
 };
 
+/**
+ * サーバー上の在室状態を取得する。夜間の強制退室などで端末の記録とずれるため、
+ * 判定はサーバーを正とする。取得できなければ null。
+ */
+const fetchServerEntered = async (
+  snapshot: BackgroundAttendanceSnapshot
+): Promise<boolean | null> => {
+  try {
+    const response = await fetch(withApiPath("/users/me"), {
+      headers: { Authorization: `Bearer ${snapshot.token}` },
+    });
+    if (!response.ok) return null;
+    const body = await response.json();
+    return typeof body?.user?.entered === "boolean" ? body.user.entered : null;
+  } catch {
+    return null;
+  }
+};
+
 let processing: Promise<void> = Promise.resolve();
 
 /** ビーコン状態を入退室に反映する。既に同じ状態なら何もしない。 */
 const applyBeaconState = async (state: BeaconRegionState) => {
   const snapshot = await backgroundAttendanceStorage.get();
   if (!snapshot) return;
+
+  const serverEntered = await fetchServerEntered(snapshot);
+  if (serverEntered !== null && serverEntered !== snapshot.entered) {
+    await backgroundAttendanceStorage.patch({ entered: serverEntered });
+    snapshot.entered = serverEntered;
+  }
 
   const action = state === "inside" ? "enter" : "exit";
   if ((action === "enter") === snapshot.entered) return;
