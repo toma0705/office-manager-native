@@ -21,7 +21,7 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.toma0705.officemanager",
-    buildNumber: "12",
+    buildNumber: "13",
     icon: "./assets/office-manager-icon.png",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
@@ -63,6 +63,17 @@ const config = {
     "expo-secure-store",
     "./plugins/withPodsDeploymentTarget",
     "./plugins/withSceneLifecycle",
+    [
+      "expo-image-picker",
+      {
+        photosPermission:
+          "プロフィール画像を設定するために写真ライブラリにアクセスします。",
+        // 写真ライブラリから選ぶだけなので、カメラとマイクは使わない。
+        // 未指定だと英語の仮の文言が入り、App Review で却下される（5.1.1）
+        cameraPermission: false,
+        microphonePermission: false,
+      },
+    ],
     [
       "expo-location",
       {
