@@ -99,7 +99,19 @@ export const HomeScreen: React.FC = () => {
       switch (result.reason) {
         case "background-denied":
           setLocationMessage(
-            "位置情報が「常に許可」でないため、ビーコンの自動検知を開始できません。設定アプリで「常に」に変更してください。",
+            Platform.OS === "android"
+              ? "位置情報が「常に許可」でないため、ビーコンの自動検知を開始できません。設定アプリの「位置情報」で「常に許可」に変更してください。"
+              : "位置情報が「常に許可」でないため、ビーコンの自動検知を開始できません。設定アプリで「常に」に変更してください。",
+          );
+          break;
+        case "disclosure-declined":
+          setLocationMessage(
+            "位置情報の利用に同意されていないため、ビーコンの自動検知を開始できません。アプリを開き直すと、もう一度確認できます。",
+          );
+          break;
+        case "bluetooth-denied":
+          setLocationMessage(
+            "「付近のデバイス」が未許可のため、ビーコンの自動検知を開始できません。設定アプリで許可してください。",
           );
           break;
         case "foreground-denied":

@@ -1,5 +1,6 @@
 import type { UserSafe } from "@office-manager/api-client";
 import * as Location from "expo-location";
+import { Alert, PermissionsAndroid, Platform } from "react-native";
 import { API_BASE_URL, withApiPath } from "@/constants/config";
 import {
   backgroundAttendanceStorage,
@@ -150,6 +151,42 @@ const saveSnapshot = async (snapshot: BackgroundAttendanceSnapshot) => {
   }
 };
 
+const confirmAsync = (title: string, message: string) =>
+  new Promise<boolean>(resolve => {
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: "許可しない", style: "cancel", onPress: () => resolve(false) },
+        { text: "続ける", onPress: () => resolve(true) },
+      ],
+      { cancelable: false }
+    );
+  });
+
+/**
+ * Google Play のポリシーにより、バックグラウンドの位置情報を求める前に
+ * 用途をアプリ内で説明して同意を得る必要がある。
+ */
+const confirmBackgroundLocationDisclosure = async () => {
+  if (Platform.OS !== "android") return true;
+  const background = await Location.getBackgroundPermissionsAsync();
+  if (background.status === "granted") return true;
+  return confirmAsync(
+    "位置情報の利用について",
+    "このアプリは、オフィスへの入退室を自動で記録するために、アプリを閉じているときや使用していないときも、位置情報と Bluetooth を使ってオフィスのビーコンを検知します。\n\n次の画面で位置情報を「常に許可」に設定してください。"
+  );
+};
+
+/** Android 12 以降は Bluetooth のスキャンに「付近のデバイス」の許可が必要 */
+const requestBluetoothScanPermission = async () => {
+  if (Platform.OS !== "android" || Platform.Version < 31) return true;
+  const result = await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN
+  );
+  return result === PermissionsAndroid.RESULTS.GRANTED;
+};
+
 export const syncBackgroundAttendanceSnapshot = async (
   token: string | null,
   user: UserSafe | null
@@ -178,7 +215,11 @@ export const ensureBackgroundAttendanceMonitoring = async (
     return { started: false, reason: "beacon-unavailable" as const };
   }
 
-  // iOS のビーコン領域監視には位置情報の「常に許可」が必要
+  if (!(await confirmBackgroundLocationDisclosure())) {
+    return { started: false, reason: "disclosure-declined" as const };
+  }
+
+  // ビーコンの領域監視には位置情報の「常に許可」が必要
   const foreground = await Location.getForegroundPermissionsAsync();
   let foregroundStatus = foreground.status;
   if (foregroundStatus !== "granted" && foreground.canAskAgain) {
@@ -200,6 +241,10 @@ export const ensureBackgroundAttendanceMonitoring = async (
 
   if (backgroundStatus !== "granted") {
     return { started: false, reason: "background-denied" as const };
+  }
+
+  if (!(await requestBluetoothScanPermission())) {
+    return { started: false, reason: "bluetooth-denied" as const };
   }
 
   const started = await startMonitoring({
