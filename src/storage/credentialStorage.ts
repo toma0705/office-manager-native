@@ -35,14 +35,8 @@ export const credentialStorage = {
   get: async (): Promise<StoredCredentials | null> => {
     try {
       const raw = await SecureStore.getItemAsync(CREDENTIAL_KEY);
-      if (__DEV__) {
-        console.log("[credentialStorage] loaded raw", raw);
-      }
       if (!raw) return null;
       const parsed = sanitizeCredentials(JSON.parse(raw));
-      if (__DEV__) {
-        console.log("[credentialStorage] parsed", parsed);
-      }
       if (!parsed) {
         await SecureStore.deleteItemAsync(CREDENTIAL_KEY);
         return null;
@@ -56,9 +50,6 @@ export const credentialStorage = {
   set: async (credentials: StoredCredentials): Promise<void> => {
     try {
       const sanitized = sanitizeCredentials(credentials);
-      if (__DEV__) {
-        console.log("[credentialStorage] saving", sanitized);
-      }
       if (!sanitized) {
         await SecureStore.deleteItemAsync(CREDENTIAL_KEY);
         return;

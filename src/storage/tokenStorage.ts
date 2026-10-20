@@ -6,9 +6,6 @@ export const tokenStorage = {
   get: async (): Promise<string | null> => {
     try {
       const value = await AsyncStorage.getItem(TOKEN_KEY);
-      if (__DEV__) {
-        console.log("[tokenStorage] loaded", value, typeof value);
-      }
       return value;
     } catch (error) {
       console.warn("Failed to load auth token", error);
@@ -17,9 +14,6 @@ export const tokenStorage = {
   },
   set: async (token: string): Promise<void> => {
     try {
-      if (__DEV__) {
-        console.log("[tokenStorage] saving", token, typeof token);
-      }
       await AsyncStorage.setItem(TOKEN_KEY, String(token ?? ""));
     } catch (error) {
       console.warn("Failed to persist auth token", error);
