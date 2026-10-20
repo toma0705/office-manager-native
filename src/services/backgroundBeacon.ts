@@ -7,9 +7,12 @@ import {
   type BackgroundAttendanceSnapshot,
 } from "@/storage/backgroundAttendanceStorage";
 import {
+  addAttendanceChangedListener,
   addRegionStateListener,
+  handlesAttendanceNatively,
   isBeaconSupported,
   refreshState,
+  setAttendanceConfig,
   startMonitoring,
   stopMonitoring,
   type BeaconRegionState,
@@ -114,15 +117,38 @@ const enqueue = (state: BeaconRegionState) => {
 };
 
 // モジュール読み込み時（バックグラウンド起動時を含む）にリスナーを登録する
-addRegionStateListener(event => {
-  void enqueue(event.state);
-});
+if (handlesAttendanceNatively) {
+  // Android は検知後の記録までネイティブ側で行うので、結果だけ受け取る
+  addAttendanceChangedListener(action => {
+    void backgroundAttendanceStorage
+      .patch({ entered: action === "enter" })
+      .then(() => attendanceListeners.forEach(listener => listener(action)));
+  });
+} else {
+  addRegionStateListener(event => {
+    void enqueue(event.state);
+  });
+}
 
 // 終了状態から OS に起こされた場合、監視は OS 側に残っている。
 // 現在の状態を問い合わせて取りこぼしたイベントを補完する。
 void backgroundAttendanceStorage.get().then(snapshot => {
   if (snapshot) void refreshState();
 });
+
+/** Android のネイティブ側に入退室 API の呼び出しに必要な情報を渡す */
+const saveSnapshot = async (snapshot: BackgroundAttendanceSnapshot) => {
+  await backgroundAttendanceStorage.set(snapshot);
+  if (handlesAttendanceNatively) {
+    await setAttendanceConfig({
+      apiBaseUrl: API_BASE_URL,
+      token: snapshot.token,
+      userId: snapshot.userId,
+      userName: snapshot.userName,
+      officeCode: snapshot.officeCode,
+    });
+  }
+};
 
 export const syncBackgroundAttendanceSnapshot = async (
   token: string | null,
@@ -133,7 +159,7 @@ export const syncBackgroundAttendanceSnapshot = async (
     await stopBackgroundAttendanceMonitoring();
     return;
   }
-  await backgroundAttendanceStorage.set(snapshot);
+  await saveSnapshot(snapshot);
 };
 
 export const stopBackgroundAttendanceMonitoring = async () => {
@@ -170,7 +196,7 @@ export const ensureBackgroundAttendanceMonitoring = async (
       .status;
   }
 
-  await backgroundAttendanceStorage.set(snapshot);
+  await saveSnapshot(snapshot);
 
   if (backgroundStatus !== "granted") {
     return { started: false, reason: "background-denied" as const };
