@@ -63,6 +63,7 @@ const config = {
     "expo-secure-store",
     "./plugins/withPodsDeploymentTarget",
     "./plugins/withSceneLifecycle",
+    "./plugins/withAndroidGradleMemory",
     [
       "expo-image-picker",
       {
