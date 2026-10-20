@@ -92,8 +92,9 @@ const config = {
           deploymentTarget: "15.1",
         },
         android: {
-          compileSdkVersion: 35,
-          targetSdkVersion: 35,
+          // Google Play は 2026年8月31日以降、新規アプリに API 36 以上を求める
+          compileSdkVersion: 36,
+          targetSdkVersion: 36,
         },
       },
     ],
