@@ -24,7 +24,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
 import { createUsersApi } from "@/api/client";
-import { withApiPath } from "@/constants/config";
+import { TEST_MODE, withApiPath } from "@/constants/config";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import {
   ensureBackgroundAttendanceMonitoring,
@@ -218,6 +218,11 @@ export const HomeScreen: React.FC = () => {
 
       <StatusTitle entered={entered} />
       <Text style={styles.locationStatus}>{locationMessage}</Text>
+      {TEST_MODE && (
+        <Text style={styles.testModeNotice}>
+          テストモード: 入退室は Discord に通知せず、この端末に通知します
+        </Text>
+      )}
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{user.office.name}</Text>
@@ -277,6 +282,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: colors.text,
+  },
+  testModeNotice: {
+    textAlign: "center",
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+    color: colors.danger,
   },
   locationMeta: {
     marginTop: -16,

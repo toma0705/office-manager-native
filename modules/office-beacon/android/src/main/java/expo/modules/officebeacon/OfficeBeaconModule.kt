@@ -14,6 +14,7 @@ class AttendanceConfigRecord : Record {
   @Field val userId: Int = 0
   @Field val userName: String = ""
   @Field val officeCode: String = ""
+  @Field val testMode: Boolean = false
 }
 
 class OfficeBeaconModule : Module() {
@@ -71,6 +72,7 @@ class OfficeBeaconModule : Module() {
             userId = it.userId,
             userName = it.userName,
             officeCode = it.officeCode,
+            testMode = it.testMode,
           )
         },
       )

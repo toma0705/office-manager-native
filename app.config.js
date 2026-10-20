@@ -1,3 +1,7 @@
+// 実機確認用のテストモード（ビルド時に OFFICE_MANAGER_TEST_MODE=1 を指定する）。
+// 入退室を Discord に通知せず、端末の通知で検知と記録の結果を知らせる。本番のビルドでは使わない
+const TEST_MODE = process.env.OFFICE_MANAGER_TEST_MODE === "1";
+
 /** @type {import('expo/config').ExpoConfig} */
 const config = {
   name: "入退室管理",
@@ -52,6 +56,8 @@ const config = {
       "ACCESS_FINE_LOCATION",
       "ACCESS_BACKGROUND_LOCATION",
       "BLUETOOTH_SCAN",
+      // テストモードの通知（Android 13 以降は許可が必要）
+      ...(TEST_MODE ? ["POST_NOTIFICATIONS"] : []),
     ],
     // 常駐通知（フォアグラウンドサービス）は使わない。ライブラリが追加する宣言も取り除き、
     // Google Play Console での追加の申告が不要な状態にする
@@ -114,6 +120,7 @@ const config = {
     // Release ビルドでは .env が JS バンドルに埋め込まれないため、
     // ネイティブの app.config 経由で API の接続先を渡す（値は .env のまま）
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
+    testMode: TEST_MODE,
     eas: {
       projectId: "98a48421-8173-486e-92b8-71d9569e2b77",
     },

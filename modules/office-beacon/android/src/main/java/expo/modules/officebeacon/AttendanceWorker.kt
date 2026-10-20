@@ -29,24 +29,51 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
     val state = inputData.getString(KEY_STATE) ?: return Result.failure()
     val config = BeaconController.loadConfig(applicationContext) ?: return Result.success()
     val action = if (state == "inside") "enter" else "exit"
+    val label = if (action == "enter") "入室" else "退室"
 
     return try {
       val entered = fetchServerEntered(config)
-      if ((action == "enter") == entered) return Result.success()
+      if ((action == "enter") == entered) {
+        notifyTest(config, "${label}中のままです", "すでに${label}中のため、記録は不要でした。")
+        return Result.success()
+      }
 
       request(config, "POST", "/users/${config.userId}/$action")
-      notifyAttendance(config, action)
+      // テストモードでは Discord に通知しない
+      if (!config.testMode) notifyAttendance(config, action)
       Log.i(TAG, "recorded $action")
+      notifyTest(config, "${label}を記録しました", "${label}を記録しました（Discord には通知していません）。")
       BeaconController.dispatchAttendanceChanged(action)
       Result.success()
     } catch (e: HttpException) {
       Log.w(TAG, "attendance request failed: ${e.code} ${e.message}")
       // 認証切れなどは再試行しても直らない
-      if (e.code >= 500 && runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
+      val retry = e.code >= 500 && runAttemptCount < MAX_ATTEMPTS
+      notifyFailure(config, label, "サーバーエラー ${e.code}", retry)
+      if (retry) Result.retry() else Result.failure()
     } catch (e: IOException) {
       Log.w(TAG, "attendance request failed", e)
-      if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
+      val retry = runAttemptCount < MAX_ATTEMPTS
+      notifyFailure(config, label, e.message ?: "通信エラー", retry)
+      if (retry) Result.retry() else Result.failure()
     }
+  }
+
+  private fun notifyFailure(config: AttendanceConfig, label: String, reason: String, retry: Boolean) {
+    notifyTest(
+      config,
+      "${label}の記録に失敗しました",
+      if (retry) "$reason。しばらくしてから再試行します。" else "$reason。再試行はしません。",
+    )
+  }
+
+  /** テストモードのとき、検知時に出した通知を記録の結果で書き換える */
+  private fun notifyTest(config: AttendanceConfig, title: String, text: String) {
+    if (!config.testMode) return
+    val id = inputData.getInt(KEY_NOTIFICATION_ID, NO_NOTIFICATION)
+    if (id == NO_NOTIFICATION) return
+    val detectedAt = inputData.getString(KEY_DETECTED_AT) ?: ""
+    TestNotifier.notify(applicationContext, id, title, "$detectedAt 検知: $text")
   }
 
   private fun fetchServerEntered(config: AttendanceConfig): Boolean {
@@ -100,12 +127,21 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
     const val WORK_NAME = "office-beacon-attendance"
     private const val TAG = "OfficeBeacon"
     private const val KEY_STATE = "state"
+    private const val KEY_DETECTED_AT = "detectedAt"
+    private const val KEY_NOTIFICATION_ID = "notificationId"
+    private const val NO_NOTIFICATION = -1
     private const val MAX_ATTEMPTS = 5
     private const val TIMEOUT_MS = 15_000
 
-    fun enqueue(context: Context, state: String) {
+    fun enqueue(context: Context, state: String, detectedAt: String, notificationId: Int?) {
       val request = OneTimeWorkRequestBuilder<AttendanceWorker>()
-        .setInputData(workDataOf(KEY_STATE to state))
+        .setInputData(
+          workDataOf(
+            KEY_STATE to state,
+            KEY_DETECTED_AT to detectedAt,
+            KEY_NOTIFICATION_ID to (notificationId ?: NO_NOTIFICATION),
+          ),
+        )
         .setConstraints(
           Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
         )

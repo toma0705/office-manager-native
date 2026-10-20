@@ -12,6 +12,9 @@ import org.altbeacon.beacon.BeaconParser
 import org.altbeacon.beacon.Identifier
 import org.altbeacon.beacon.MonitorNotifier
 import org.altbeacon.beacon.Region
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import org.json.JSONObject
 
 /** 入退室 API を呼ぶのに必要な情報（JS 側の BackgroundAttendanceSnapshot から渡される） */
@@ -21,6 +24,8 @@ data class AttendanceConfig(
   val userId: Int,
   val userName: String,
   val officeCode: String,
+  /** 実機確認用。Discord に通知せず、端末の通知で検知と記録の結果を知らせる */
+  val testMode: Boolean,
 )
 
 /**
@@ -83,7 +88,21 @@ object BeaconController {
     }
     Log.i(TAG, "region ${region.uniqueId} is $value ($source)")
     listener?.onRegionState(region.uniqueId, value, source)
-    AttendanceWorker.enqueue(context, value)
+
+    val detectedAt = SimpleDateFormat("HH:mm:ss", Locale.JAPAN).format(Date())
+    val notificationId = if (loadConfig(context)?.testMode == true) {
+      TestNotifier.newId().also { id ->
+        TestNotifier.notify(
+          context,
+          id,
+          if (value == "inside") "ビーコンの圏内に入りました" else "ビーコンの圏外に出ました",
+          "$detectedAt ${if (source == "refresh") "状態の確認" else "入退場"}で検知。入退室の記録を確認しています…",
+        )
+      }
+    } else {
+      null
+    }
+    AttendanceWorker.enqueue(context, value, detectedAt, notificationId)
   }
 
   fun hasPermissions(context: Context): Boolean {
@@ -189,6 +208,7 @@ object BeaconController {
           .put("userId", config.userId)
           .put("userName", config.userName)
           .put("officeCode", config.officeCode)
+          .put("testMode", config.testMode)
           .toString(),
       )
     }
@@ -205,6 +225,7 @@ object BeaconController {
         userId = json.getInt("userId"),
         userName = json.getString("userName"),
         officeCode = json.getString("officeCode"),
+        testMode = json.optBoolean("testMode", false),
       )
     } catch (e: Exception) {
       Log.w(TAG, "invalid attendance config", e)

@@ -1,7 +1,7 @@
 import type { UserSafe } from "@office-manager/api-client";
 import * as Location from "expo-location";
 import { Alert, PermissionsAndroid, Platform } from "react-native";
-import { API_BASE_URL, withApiPath } from "@/constants/config";
+import { API_BASE_URL, TEST_MODE, withApiPath } from "@/constants/config";
 import {
   backgroundAttendanceStorage,
   createBackgroundAttendanceSnapshot,
@@ -50,21 +50,24 @@ const postAttendanceAction = async (
     throw new Error(text || `Failed to ${action} in background`);
   }
 
-  const status = action === "enter" ? "入室" : "退室";
-  await fetch(`${API_BASE_URL}/notify`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${snapshot.token}`,
-    },
-    body: JSON.stringify({
-      user: snapshot.userName,
-      status,
-      officeCode: snapshot.officeCode,
-    }),
-  }).catch(error => {
-    console.warn("Failed to notify background attendance", error);
-  });
+  // テストモードでは Discord に通知しない
+  if (!TEST_MODE) {
+    const status = action === "enter" ? "入室" : "退室";
+    await fetch(`${API_BASE_URL}/notify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${snapshot.token}`,
+      },
+      body: JSON.stringify({
+        user: snapshot.userName,
+        status,
+        officeCode: snapshot.officeCode,
+      }),
+    }).catch(error => {
+      console.warn("Failed to notify background attendance", error);
+    });
+  }
 
   await backgroundAttendanceStorage.patch({ entered: action === "enter" });
   attendanceListeners.forEach(listener => listener(action));
@@ -147,6 +150,7 @@ const saveSnapshot = async (snapshot: BackgroundAttendanceSnapshot) => {
       userId: snapshot.userId,
       userName: snapshot.userName,
       officeCode: snapshot.officeCode,
+      testMode: TEST_MODE,
     });
   }
 };
@@ -185,6 +189,14 @@ const requestBluetoothScanPermission = async () => {
     PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN
   );
   return result === PermissionsAndroid.RESULTS.GRANTED;
+};
+
+/** テストモードの通知（Android 13 以降は許可が必要）。許可がなくても監視は続ける */
+const requestTestNotificationPermission = async () => {
+  if (!TEST_MODE || Platform.OS !== "android" || Platform.Version < 33) return;
+  await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+  );
 };
 
 export const syncBackgroundAttendanceSnapshot = async (
@@ -246,6 +258,8 @@ export const ensureBackgroundAttendanceMonitoring = async (
   if (!(await requestBluetoothScanPermission())) {
     return { started: false, reason: "bluetooth-denied" as const };
   }
+
+  await requestTestNotificationPermission();
 
   const started = await startMonitoring({
     ...snapshot.beacon,
