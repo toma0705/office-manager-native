@@ -228,7 +228,8 @@ object BeaconController {
         testMode = json.optBoolean("testMode", false),
       )
     } catch (e: Exception) {
-      Log.w(TAG, "invalid attendance config", e)
+      // 例外のメッセージには保存した値（トークンを含む）が入ることがあるので出さない
+      Log.w(TAG, "invalid attendance config")
       null
     }
   }
