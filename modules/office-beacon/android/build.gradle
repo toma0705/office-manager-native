@@ -1,0 +1,22 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.officebeacon'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.officebeacon"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+}
+
+dependencies {
+  // iBeacon の領域監視（アプリ終了後もバックグラウンドで検知を続ける）
+  implementation "org.altbeacon:android-beacon-library:2.21.2"
+  // 検知後の入退室 API 呼び出し（通信失敗時の再試行を任せる）
+  implementation "androidx.work:work-runtime-ktx:2.10.1"
+}

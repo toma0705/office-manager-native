@@ -46,12 +46,18 @@ const config = {
       backgroundColor: "#ffffff",
     },
     package: "com.toma0705.officemanager",
+    // iBeacon の検知には位置情報（常に許可）と Bluetooth のスキャン（Android 12 以降）が必要
     permissions: [
       "ACCESS_COARSE_LOCATION",
       "ACCESS_FINE_LOCATION",
       "ACCESS_BACKGROUND_LOCATION",
-      "FOREGROUND_SERVICE",
-      "FOREGROUND_SERVICE_LOCATION",
+      "BLUETOOTH_SCAN",
+    ],
+    // 常駐通知（フォアグラウンドサービス）は使わない。ライブラリが追加する宣言も取り除き、
+    // Google Play Console での追加の申告が不要な状態にする
+    blockedPermissions: [
+      "android.permission.FOREGROUND_SERVICE",
+      "android.permission.FOREGROUND_SERVICE_LOCATION",
     ],
     versionCode: 1,
   },
@@ -63,6 +69,9 @@ const config = {
     "expo-secure-store",
     "./plugins/withPodsDeploymentTarget",
     "./plugins/withSceneLifecycle",
+    "./plugins/withAndroidBeaconManifest",
+    "./plugins/withAndroidReleaseSigning",
+    "./plugins/withAndroidGradleMemory",
     [
       "expo-image-picker",
       {
@@ -83,6 +92,8 @@ const config = {
           "アプリを閉じていてもオフィスのビーコンを検知し、自動で入退室を記録するために位置情報を利用します。",
         // iBeacon 領域監視は位置情報サービスの一部（常に許可 + location background mode が必要）
         isIosBackgroundLocationEnabled: true,
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: false,
       },
     ],
     [
@@ -92,8 +103,9 @@ const config = {
           deploymentTarget: "15.1",
         },
         android: {
-          compileSdkVersion: 35,
-          targetSdkVersion: 35,
+          // Google Play は 2026年8月31日以降、新規アプリに API 36 以上を求める
+          compileSdkVersion: 36,
+          targetSdkVersion: 36,
         },
       },
     ],
