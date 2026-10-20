@@ -67,3 +67,11 @@ export const API_BASE_URL =
 
 export const withApiPath = (path: string) =>
   `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+
+/**
+ * 実機確認用のテストモード（app.config.js の OFFICE_MANAGER_TEST_MODE）。
+ * 入退室を Discord に通知せず、端末の通知で検知と記録の結果を知らせる。
+ */
+export const TEST_MODE =
+  (Constants?.expoConfig?.extra as { testMode?: boolean } | undefined)
+    ?.testMode === true;

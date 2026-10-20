@@ -9,6 +9,8 @@ export type AttendanceConfig = {
   userId: number;
   userName: string;
   officeCode: string;
+  /** 実機確認用。Discord に通知せず、端末の通知で検知と記録の結果を知らせる */
+  testMode: boolean;
 };
 
 export type BeaconRegionEvent = {
