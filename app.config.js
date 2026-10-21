@@ -65,7 +65,7 @@ const config = {
       "android.permission.FOREGROUND_SERVICE",
       "android.permission.FOREGROUND_SERVICE_LOCATION",
     ],
-    versionCode: 1,
+    versionCode: 2,
   },
   web: {
     favicon: "./assets/favicon.png",
