@@ -1,6 +1,6 @@
 import type { UserSafe } from "@office-manager/api-client";
 import * as Location from "expo-location";
-import { Alert, PermissionsAndroid, Platform } from "react-native";
+import { Alert, AppState, PermissionsAndroid, Platform } from "react-native";
 import { API_BASE_URL, TEST_MODE, withApiPath } from "@/constants/config";
 import {
   backgroundAttendanceStorage,
@@ -74,7 +74,7 @@ const postAttendanceAction = async (
 };
 
 /**
- * サーバー上の在室状態を取得する。夜間の強制退室などで端末の記録とずれるため、
+ * サーバー上の在室状態を取得する。Web での手動の入退室などで端末の記録とずれるため、
  * 判定はサーバーを正とする。取得できなければ null。
  */
 const fetchServerEntered = async (
@@ -134,10 +134,20 @@ if (handlesAttendanceNatively) {
   });
 }
 
+/** ビーコンの現在の状態を問い合わせ、サーバーの在室状態とずれていれば直す */
+const refreshIfMonitoring = async () => {
+  const snapshot = await backgroundAttendanceStorage.get();
+  if (snapshot) await refreshState();
+};
+
 // 終了状態から OS に起こされた場合、監視は OS 側に残っている。
 // 現在の状態を問い合わせて取りこぼしたイベントを補完する。
-void backgroundAttendanceStorage.get().then(snapshot => {
-  if (snapshot) void refreshState();
+void refreshIfMonitoring();
+
+// ビーコンの状態が変わらないと記録されないため、Web で手動で入退室を変えると
+// 次の出入りまでずれたままになる。アプリが前面に戻ったときにも確かめ直す。
+AppState.addEventListener("change", state => {
+  if (state === "active") void refreshIfMonitoring();
 });
 
 /** Android のネイティブ側に入退室 API の呼び出しに必要な情報を渡す */
