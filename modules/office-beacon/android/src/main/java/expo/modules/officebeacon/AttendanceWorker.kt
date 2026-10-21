@@ -34,7 +34,9 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
     return try {
       val entered = fetchServerEntered(config)
       if ((action == "enter") == entered) {
-        notifyTest(config, "${label}中のままです", "すでに${label}中のため、記録は不要でした。")
+        if (inputData.getString(KEY_SOURCE) == "event") {
+          notifyTest(config, "${label}中のままです", "すでに${label}中のため、記録は不要でした。")
+        }
         return Result.success()
       }
 
@@ -73,7 +75,8 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
     val id = inputData.getInt(KEY_NOTIFICATION_ID, NO_NOTIFICATION)
     if (id == NO_NOTIFICATION) return
     val detectedAt = inputData.getString(KEY_DETECTED_AT) ?: ""
-    TestNotifier.notify(applicationContext, id, title, "$detectedAt 検知: $text")
+    val trigger = if (inputData.getString(KEY_SOURCE) == "event") "検知" else "状態の確認"
+    TestNotifier.notify(applicationContext, id, title, "$detectedAt $trigger: $text")
   }
 
   private fun fetchServerEntered(config: AttendanceConfig): Boolean {
@@ -127,17 +130,25 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
     const val WORK_NAME = "office-beacon-attendance"
     private const val TAG = "OfficeBeacon"
     private const val KEY_STATE = "state"
+    private const val KEY_SOURCE = "source"
     private const val KEY_DETECTED_AT = "detectedAt"
     private const val KEY_NOTIFICATION_ID = "notificationId"
     private const val NO_NOTIFICATION = -1
     private const val MAX_ATTEMPTS = 5
     private const val TIMEOUT_MS = 15_000
 
-    fun enqueue(context: Context, state: String, detectedAt: String, notificationId: Int?) {
+    fun enqueue(
+      context: Context,
+      state: String,
+      source: String,
+      detectedAt: String,
+      notificationId: Int?,
+    ) {
       val request = OneTimeWorkRequestBuilder<AttendanceWorker>()
         .setInputData(
           workDataOf(
             KEY_STATE to state,
+            KEY_SOURCE to source,
             KEY_DETECTED_AT to detectedAt,
             KEY_NOTIFICATION_ID to (notificationId ?: NO_NOTIFICATION),
           ),
