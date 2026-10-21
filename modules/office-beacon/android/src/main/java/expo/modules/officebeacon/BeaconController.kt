@@ -92,17 +92,20 @@ object BeaconController {
     val detectedAt = SimpleDateFormat("HH:mm:ss", Locale.JAPAN).format(Date())
     val notificationId = if (loadConfig(context)?.testMode == true) {
       TestNotifier.newId().also { id ->
-        TestNotifier.notify(
-          context,
-          id,
-          if (value == "inside") "ビーコンの圏内に入りました" else "ビーコンの圏外に出ました",
-          "$detectedAt ${if (source == "refresh") "状態の確認" else "入退場"}で検知。入退室の記録を確認しています…",
-        )
+        // アプリを開くたびの状態の確認では、記録を直したときだけ通知する（AttendanceWorker）
+        if (source == "event") {
+          TestNotifier.notify(
+            context,
+            id,
+            if (value == "inside") "ビーコンの圏内に入りました" else "ビーコンの圏外に出ました",
+            "$detectedAt 入退場で検知。入退室の記録を確認しています…",
+          )
+        }
       }
     } else {
       null
     }
-    AttendanceWorker.enqueue(context, value, detectedAt, notificationId)
+    AttendanceWorker.enqueue(context, value, source, detectedAt, notificationId)
   }
 
   fun hasPermissions(context: Context): Boolean {
