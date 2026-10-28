@@ -7,7 +7,7 @@ const config = {
   name: "入退室管理",
   owner: "toma0705",
   slug: "office-manager-native",
-  version: "3.0.0",
+  version: "3.0.1",
   orientation: "portrait",
   icon: "./assets/office-manager-icon.png",
   userInterfaceStyle: "light",
@@ -25,7 +25,7 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.toma0705.officemanager",
-    buildNumber: "14",
+    buildNumber: "15",
     icon: "./assets/office-manager-icon.png",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
@@ -65,7 +65,7 @@ const config = {
       "android.permission.FOREGROUND_SERVICE",
       "android.permission.FOREGROUND_SERVICE_LOCATION",
     ],
-    versionCode: 2,
+    versionCode: 3,
   },
   web: {
     favicon: "./assets/favicon.png",
