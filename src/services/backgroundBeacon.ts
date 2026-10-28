@@ -31,28 +31,28 @@ export const onBackgroundAttendanceChanged = (listener: AttendanceListener) => {
   };
 };
 
-const postAttendanceAction = async (
+const postAttendance = async (
   snapshot: BackgroundAttendanceSnapshot,
-  action: "enter" | "exit"
+  path: "enter" | "leave"
 ) => {
-  const response = await fetch(
-    withApiPath(`/users/${snapshot.userId}/${action}`),
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${snapshot.token}`,
-      },
-    }
-  );
+  const response = await fetch(withApiPath(`/users/${snapshot.userId}/${path}`), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${snapshot.token}`,
+    },
+  });
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Failed to ${action} in background`);
+    throw new Error(text || `Failed to ${path} in background`);
   }
+};
+
+const recordEnter = async (snapshot: BackgroundAttendanceSnapshot) => {
+  await postAttendance(snapshot, "enter");
 
   // テストモードでは Discord に通知しない
   if (!TEST_MODE) {
-    const status = action === "enter" ? "入室" : "退室";
     await fetch(`${API_BASE_URL}/notify`, {
       method: "POST",
       headers: {
@@ -61,7 +61,7 @@ const postAttendanceAction = async (
       },
       body: JSON.stringify({
         user: snapshot.userName,
-        status,
+        status: "入室",
         officeCode: snapshot.officeCode,
       }),
     }).catch(error => {
@@ -69,24 +69,30 @@ const postAttendanceAction = async (
     });
   }
 
-  await backgroundAttendanceStorage.patch({ entered: action === "enter" });
-  attendanceListeners.forEach(listener => listener(action));
+  await backgroundAttendanceStorage.patch({ entered: true });
+  attendanceListeners.forEach(listener => listener("enter"));
 };
+
+type ServerAttendance = { entered: boolean; exitPending: boolean };
 
 /**
  * サーバー上の在室状態を取得する。Web での手動の入退室などで端末の記録とずれるため、
  * 判定はサーバーを正とする。取得できなければ null。
  */
-const fetchServerEntered = async (
+const fetchServerAttendance = async (
   snapshot: BackgroundAttendanceSnapshot
-): Promise<boolean | null> => {
+): Promise<ServerAttendance | null> => {
   try {
     const response = await fetch(withApiPath("/users/me"), {
       headers: { Authorization: `Bearer ${snapshot.token}` },
     });
     if (!response.ok) return null;
     const body = await response.json();
-    return typeof body?.user?.entered === "boolean" ? body.user.entered : null;
+    if (typeof body?.user?.entered !== "boolean") return null;
+    return {
+      entered: body.user.entered,
+      exitPending: body.user.entered && body.user.exitPendingSince != null,
+    };
   } catch {
     return null;
   }
@@ -94,22 +100,33 @@ const fetchServerEntered = async (
 
 let processing: Promise<void> = Promise.resolve();
 
-/** ビーコン状態を入退室に反映する。既に同じ状態なら何もしない。 */
+/**
+ * ビーコン状態を入退室に反映する。既に同じ状態なら何もしない。
+ * 圏外になってもすぐには退室にせず、サーバーで保留にする（猶予の間に戻らなければ
+ * サーバーが退室を確定して Discord に通知する）。保留中に圏内に戻れば取り消す。
+ */
 const applyBeaconState = async (state: BeaconRegionState) => {
   const snapshot = await backgroundAttendanceStorage.get();
   if (!snapshot) return;
 
-  const serverEntered = await fetchServerEntered(snapshot);
-  if (serverEntered !== null && serverEntered !== snapshot.entered) {
-    await backgroundAttendanceStorage.patch({ entered: serverEntered });
-    snapshot.entered = serverEntered;
+  const server = await fetchServerAttendance(snapshot);
+  if (server && server.entered !== snapshot.entered) {
+    await backgroundAttendanceStorage.patch({ entered: server.entered });
+    snapshot.entered = server.entered;
   }
-
-  const action = state === "inside" ? "enter" : "exit";
-  if ((action === "enter") === snapshot.entered) return;
+  const exitPending = server?.exitPending ?? false;
 
   try {
-    await postAttendanceAction(snapshot, action);
+    if (state === "inside") {
+      if (!snapshot.entered) {
+        await recordEnter(snapshot);
+      } else if (exitPending) {
+        // 猶予の間に戻ってきたので保留を取り消す（Discord には通知しない）
+        await postAttendance(snapshot, "enter");
+      }
+    } else if (snapshot.entered && !exitPending) {
+      await postAttendance(snapshot, "leave");
+    }
   } catch (error) {
     console.warn("Failed to handle beacon event", error);
   }
