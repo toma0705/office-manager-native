@@ -20,6 +20,8 @@ import org.json.JSONObject
 /**
  * ビーコンの状態を入退室に反映する（JS の backgroundBeacon.ts の applyBeaconState と同じ流れ）。
  * サーバーの在室状態を正とし、既に同じ状態なら何もしない。
+ * 圏外になってもすぐには退室にせず、サーバーで保留にする（猶予の間に戻らなければ
+ * サーバーが退室を確定して Discord に通知する）。保留中に圏内に戻れば取り消す。
  */
 class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
 
@@ -28,24 +30,44 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
   override fun doWork(): Result {
     val state = inputData.getString(KEY_STATE) ?: return Result.failure()
     val config = BeaconController.loadConfig(applicationContext) ?: return Result.success()
-    val action = if (state == "inside") "enter" else "exit"
-    val label = if (action == "enter") "入室" else "退室"
+    val inside = state == "inside"
+    val label = if (inside) "入室" else "退室"
 
     return try {
-      val entered = fetchServerEntered(config)
-      if ((action == "enter") == entered) {
-        if (inputData.getString(KEY_SOURCE) == "event") {
-          notifyTest(config, "${label}中のままです", "すでに${label}中のため、記録は不要でした。")
+      val server = fetchServerAttendance(config)
+      when {
+        inside && !server.entered -> {
+          request(config, "POST", "/users/${config.userId}/enter")
+          // テストモードでは Discord に通知しない
+          if (!config.testMode) notifyEnter(config)
+          Log.i(TAG, "recorded enter")
+          notifyTest(config, "入室を記録しました", "入室を記録しました（Discord には通知していません）。")
+          BeaconController.dispatchAttendanceChanged("enter")
         }
-        return Result.success()
+        inside && server.exitPending -> {
+          // 猶予の間に戻ってきたので保留を取り消す（Discord には通知しない）
+          request(config, "POST", "/users/${config.userId}/enter")
+          Log.i(TAG, "cancelled pending exit")
+          notifyTest(config, "退室の保留を取り消しました", "猶予の間に戻ったため、入室中のままです。")
+        }
+        !inside && server.entered && !server.exitPending -> {
+          request(config, "POST", "/users/${config.userId}/leave")
+          Log.i(TAG, "requested pending exit")
+          notifyTest(
+            config,
+            "退室を保留しました",
+            "猶予の間に戻らなければ、サーバーが退室を記録して Discord に通知します。",
+          )
+        }
+        inputData.getString(KEY_SOURCE) == "event" -> {
+          val current = when {
+            server.exitPending -> "退室の保留中"
+            server.entered -> "入室中"
+            else -> "退室中"
+          }
+          notifyTest(config, "${current}のままです", "すでに${current}のため、記録は不要でした。")
+        }
       }
-
-      request(config, "POST", "/users/${config.userId}/$action")
-      // テストモードでは Discord に通知しない
-      if (!config.testMode) notifyAttendance(config, action)
-      Log.i(TAG, "recorded $action")
-      notifyTest(config, "${label}を記録しました", "${label}を記録しました（Discord には通知していません）。")
-      BeaconController.dispatchAttendanceChanged(action)
       Result.success()
     } catch (e: HttpException) {
       Log.w(TAG, "attendance request failed: ${e.code} ${e.message}")
@@ -79,15 +101,18 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
     TestNotifier.notify(applicationContext, id, title, "$detectedAt $trigger: $text")
   }
 
-  private fun fetchServerEntered(config: AttendanceConfig): Boolean {
-    val body = request(config, "GET", "/users/me")
-    return JSONObject(body).getJSONObject("user").getBoolean("entered")
+  private class ServerAttendance(val entered: Boolean, val exitPending: Boolean)
+
+  private fun fetchServerAttendance(config: AttendanceConfig): ServerAttendance {
+    val user = JSONObject(request(config, "GET", "/users/me")).getJSONObject("user")
+    val entered = user.getBoolean("entered")
+    return ServerAttendance(entered, entered && !user.isNull("exitPendingSince"))
   }
 
-  private fun notifyAttendance(config: AttendanceConfig, action: String) {
+  private fun notifyEnter(config: AttendanceConfig) {
     val payload = JSONObject()
       .put("user", config.userName)
-      .put("status", if (action == "enter") "入室" else "退室")
+      .put("status", "入室")
       .put("officeCode", config.officeCode)
     try {
       request(config, "POST", "/notify", payload)
