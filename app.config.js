@@ -8,7 +8,7 @@ const config = {
   name: "入退室管理",
   owner: "toma0705",
   slug: "office-manager-native",
-  version: "3.0.1",
+  version: "3.0.2",
   orientation: "portrait",
   icon: "./assets/office-manager-icon.png",
   userInterfaceStyle: "light",
