@@ -4,7 +4,7 @@ export type OfficeBeacon = {
   minor: number;
 };
 
-/** ESP32 の iBeacon 設定（firmware/office_beacon.ino と一致させること） */
+/** オフィスに置いた ESP32 の iBeacon の設定（firmware/office_beacon/office_beacon.ino と一致させる） */
 const OFFICE_BEACON_BY_CODE: Record<string, OfficeBeacon> = {
   OKAYAMA: {
     uuid: "12345678-1234-1234-1234-123456789ABC",
