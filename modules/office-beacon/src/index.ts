@@ -7,8 +7,6 @@ export type AttendanceConfig = {
   apiBaseUrl: string;
   token: string;
   userId: number;
-  userName: string;
-  officeCode: string;
   /** 実機確認用。検知と記録の結果を端末の通知で知らせる */
   testMode: boolean;
 };

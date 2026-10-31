@@ -1,73 +1,54 @@
 import Constants from "expo-constants";
 
-const normalize = (value: string | undefined | null) =>
-  value?.replace(/\/$/, "") ?? undefined;
+/** 本番の API（.env の EXPO_PUBLIC_API_BASE_URL が未設定のときに使う） */
+export const PRODUCTION_API_BASE_URL =
+  "https://okayama-office-manager.vercel.app/api";
 
-const extractHost = (value: string | undefined | null) => {
-  if (!value) return undefined;
-  return value.split(":")[0];
+type ConfigSources = {
+  /** .env の EXPO_PUBLIC_API_BASE_URL（開発中に Metro から読まれる） */
+  envBaseUrl?: string;
+  /** app.config.js の extra.apiBaseUrl（Release ビルドにはこちらが埋め込まれる） */
+  extraBaseUrl?: string;
+  /** 開発中に Metro を動かしている PC（例: 192.168.0.10:8081） */
+  devHostUri?: string;
+  isDevelopment: boolean;
 };
 
-const resolveEnvBaseUrl = () => {
-  const fromProcess = normalize(process.env.EXPO_PUBLIC_API_BASE_URL);
-  if (fromProcess) return fromProcess;
+const trimSlash = (value: string) => value.replace(/\/$/, "");
 
-  const extra = Constants?.expoConfig?.extra as
-    { apiBaseUrl?: string } | undefined;
-  if (extra?.apiBaseUrl) return normalize(extra.apiBaseUrl);
-
-  const legacy = (Constants?.manifest2 as any)?.extra?.apiBaseUrl;
-  if (typeof legacy === "string") return normalize(legacy);
-
-  return undefined;
+/**
+ * API の接続先を決める。.env の値 → app.config.js の値 → 開発中なら Metro の PC の 3000 番 → 本番 の順。
+ */
+export const resolveApiBaseUrl = ({
+  envBaseUrl,
+  extraBaseUrl,
+  devHostUri,
+  isDevelopment,
+}: ConfigSources) => {
+  const configured = envBaseUrl || extraBaseUrl;
+  if (configured) return trimSlash(configured);
+  if (isDevelopment) {
+    const host = devHostUri?.split(":")[0] || "localhost";
+    return `http://${host}:3000/api`;
+  }
+  return PRODUCTION_API_BASE_URL;
 };
 
-const resolveExpoHostBaseUrl = () => {
-  const expoConfigHost = extractHost(
-    (Constants?.expoConfig as { hostUri?: string } | null | undefined)?.hostUri
-  );
-  if (expoConfigHost) {
-    return `http://${expoConfigHost}:3000/api`;
-  }
+const extra = Constants.expoConfig?.extra as
+  { apiBaseUrl?: string; testMode?: boolean } | undefined;
 
-  const expoGoDebuggerHost = extractHost(
-    (Constants?.expoGoConfig as { debuggerHost?: string } | null | undefined)
-      ?.debuggerHost
-  );
-  if (expoGoDebuggerHost) {
-    return `http://${expoGoDebuggerHost}:3000/api`;
-  }
+export const API_BASE_URL = resolveApiBaseUrl({
+  envBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
+  extraBaseUrl: extra?.apiBaseUrl,
+  devHostUri: Constants.expoConfig?.hostUri,
+  isDevelopment: process.env.NODE_ENV === "development",
+});
 
-  const legacyHost = extractHost(
-    (
-      Constants?.manifest2 as
-        { extra?: { expoClient?: { hostUri?: string } } } | null | undefined
-    )?.extra?.expoClient?.hostUri
-  );
-  if (legacyHost) {
-    return `http://${legacyHost}:3000/api`;
-  }
-
-  return undefined;
-};
-
-const DEFAULT_DEV_BASE_URL = "http://localhost:3000/api";
-const DEFAULT_PROD_BASE_URL = "https://api.example.com";
-
-export const API_BASE_URL =
-  resolveEnvBaseUrl() ??
-  resolveExpoHostBaseUrl() ??
-  (process.env.NODE_ENV === "development"
-    ? DEFAULT_DEV_BASE_URL
-    : DEFAULT_PROD_BASE_URL);
-
-export const withApiPath = (path: string) =>
-  `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+export const withApiPath = (path: string, baseUrl = API_BASE_URL) =>
+  `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 
 /**
  * 実機確認用のテストモード（app.config.js の OFFICE_MANAGER_TEST_MODE）。
- * 検知と記録の結果を端末の通知で知らせる。入退室の確定はサーバーが行うので、Discord にも通知される。
+ * 検知と記録の結果を端末の通知で知らせる（Android のみ）。入退室の確定はサーバーが行うので、Discord にも通知される。
  */
-export const TEST_MODE =
-  (Constants?.expoConfig?.extra as { testMode?: boolean } | undefined)
-    ?.testMode === true;
+export const TEST_MODE = extra?.testMode === true;

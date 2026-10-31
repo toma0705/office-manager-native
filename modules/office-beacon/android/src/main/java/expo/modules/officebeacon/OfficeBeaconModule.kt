@@ -12,8 +12,6 @@ class AttendanceConfigRecord : Record {
   @Field val apiBaseUrl: String = ""
   @Field val token: String = ""
   @Field val userId: Int = 0
-  @Field val userName: String = ""
-  @Field val officeCode: String = ""
   @Field val testMode: Boolean = false
 }
 
@@ -70,8 +68,6 @@ class OfficeBeaconModule : Module() {
             apiBaseUrl = it.apiBaseUrl,
             token = it.token,
             userId = it.userId,
-            userName = it.userName,
-            officeCode = it.officeCode,
             testMode = it.testMode,
           )
         },

@@ -19,4 +19,9 @@ dependencies {
   implementation "org.altbeacon:android-beacon-library:2.21.2"
   // 検知後の入退室 API 呼び出し（通信失敗時の再試行を任せる）
   implementation "androidx.work:work-runtime-ktx:2.10.1"
+
+  // 単体テスト（./gradlew :office-beacon:testDebugUnitTest）。
+  // Android の org.json はテストでは使えないので、本物の実装を入れる
+  testImplementation "junit:junit:4.13.2"
+  testImplementation "org.json:json:20250517"
 }

@@ -4,26 +4,25 @@ import { getOfficeBeacon, type OfficeBeacon } from "@/constants/beacon";
 
 const BACKGROUND_ATTENDANCE_KEY = "office-manager/background-attendance";
 
+/**
+ * ビーコンの検知で API を呼ぶために端末に覚えておく情報。
+ * OS がアプリをバックグラウンドで起こしたときは画面の状態がないので、ここから読む。
+ */
 export type BackgroundAttendanceSnapshot = {
   token: string;
   userId: number;
-  userName: string;
-  officeCode: string;
-  officeName: string;
+  /** サーバーに繋がらなかったときに使う、最後に知っている在室状態 */
   entered: boolean;
   beacon: OfficeBeacon;
 };
 
-const isSnapshot = (
+export const isSnapshot = (
   value: Partial<BackgroundAttendanceSnapshot> | null | undefined
 ): value is BackgroundAttendanceSnapshot =>
   Boolean(
     value &&
     typeof value.token === "string" &&
     typeof value.userId === "number" &&
-    typeof value.userName === "string" &&
-    typeof value.officeCode === "string" &&
-    typeof value.officeName === "string" &&
     typeof value.entered === "boolean" &&
     typeof value.beacon?.uuid === "string"
   );
@@ -32,20 +31,11 @@ export const createBackgroundAttendanceSnapshot = (
   token: string,
   user: UserSafe
 ): BackgroundAttendanceSnapshot | null => {
+  // ビーコンを置いていないオフィスでは監視しない
   const beacon = getOfficeBeacon(user.office);
-  if (!token || !beacon || !user.office?.code || !user.office?.name) {
-    return null;
-  }
+  if (!token || !beacon) return null;
 
-  return {
-    token,
-    userId: user.id,
-    userName: user.name,
-    officeCode: user.office.code,
-    officeName: user.office.name,
-    entered: Boolean(user.entered),
-    beacon,
-  };
+  return { token, userId: user.id, entered: Boolean(user.entered), beacon };
 };
 
 export const backgroundAttendanceStorage = {
@@ -73,13 +63,9 @@ export const backgroundAttendanceStorage = {
   patch: async (
     updates: Partial<BackgroundAttendanceSnapshot>
   ): Promise<void> => {
-    try {
-      const current = await backgroundAttendanceStorage.get();
-      if (!current) return;
+    const current = await backgroundAttendanceStorage.get();
+    if (current)
       await backgroundAttendanceStorage.set({ ...current, ...updates });
-    } catch (error) {
-      console.warn("Failed to patch background attendance snapshot", error);
-    }
   },
   remove: async (): Promise<void> => {
     try {

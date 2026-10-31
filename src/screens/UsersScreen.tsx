@@ -24,14 +24,9 @@ export const UsersScreen: React.FC = () => {
   const load = useCallback(async () => {
     if (!token) return;
     try {
-      const [usersApi, officesApi] = [createUsersApi(), createOfficesApi()];
       const [userList, officeList] = await Promise.all([
-        // ユーザー一覧はログイン必須。生成クライアントは認証ヘッダーを付けないため直接渡す
-        usersApi.usersGet(
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        ),
-        officesApi.officesGet(),
+        createUsersApi(token).usersGet(),
+        createOfficesApi().officesGet(),
       ]);
       setUsers(userList);
       setOffices(officeList);

@@ -22,8 +22,6 @@ data class AttendanceConfig(
   val apiBaseUrl: String,
   val token: String,
   val userId: Int,
-  val userName: String,
-  val officeCode: String,
   /** 実機確認用。検知と記録の結果を端末の通知で知らせる */
   val testMode: Boolean,
 )
@@ -209,8 +207,6 @@ object BeaconController {
           .put("apiBaseUrl", config.apiBaseUrl)
           .put("token", config.token)
           .put("userId", config.userId)
-          .put("userName", config.userName)
-          .put("officeCode", config.officeCode)
           .put("testMode", config.testMode)
           .toString(),
       )
@@ -226,8 +222,6 @@ object BeaconController {
         apiBaseUrl = json.getString("apiBaseUrl"),
         token = json.getString("token"),
         userId = json.getInt("userId"),
-        userName = json.getString("userName"),
-        officeCode = json.getString("officeCode"),
         testMode = json.optBoolean("testMode", false),
       )
     } catch (e: Exception) {
