@@ -1,5 +1,5 @@
 // オフィス用 iBeacon (ESP32 / Arduino-ESP32 core 3.x)
-// UUID / Major / Minor は native/src/constants/beacon.ts と一致させること。
+// UUID / Major / Minor はアプリの src/constants/beacon.ts と一致させること。
 //
 // BLEBeacon クラスは使わない。BLEUUID が UUID をバイト逆順で保持し、
 // setProximityUUID がそれをそのまま送信するため、iPhone からは別の UUID に見えてしまう。
