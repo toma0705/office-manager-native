@@ -1,0 +1,8 @@
+android/
+ios/
+node_modules/
+coverage/
+.expo/
+modules/office-beacon/android/build/
+package-lock.json
+patches/

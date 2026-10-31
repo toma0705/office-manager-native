@@ -165,13 +165,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [signOut, token]);
 
-  const setUserState = useCallback((next: UserSafe | null) => {
-    if (token && next) {
-      void syncBackgroundAttendanceSnapshot(token, next);
-    }
-    setUser(next);
-    setStatus(next ? "signedIn" : "signedOut");
-  }, [token]);
+  const setUserState = useCallback(
+    (next: UserSafe | null) => {
+      if (token && next) {
+        void syncBackgroundAttendanceSnapshot(token, next);
+      }
+      setUser(next);
+      setStatus(next ? "signedIn" : "signedOut");
+    },
+    [token]
+  );
 
   const value = useMemo<AuthContextValue>(
     () => ({ status, user, token, signIn, signOut, refreshUser, setUserState }),

@@ -24,12 +24,13 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
 import { createUsersApi } from "@/api/client";
-import { TEST_MODE, withApiPath } from "@/constants/config";
+import { TEST_MODE } from "@/constants/config";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import {
   ensureBackgroundAttendanceMonitoring,
   onBackgroundAttendanceChanged,
 } from "@/services/backgroundBeacon";
+import { monitoringMessage } from "@/services/beacon/monitoringMessage";
 import { colors } from "@/theme/colors";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
@@ -59,7 +60,7 @@ export const HomeScreen: React.FC = () => {
       Alert.alert(
         "エラー",
         "ユーザー情報の取得に失敗しました。ログインし直してください。",
-        [{ text: "OK", onPress: () => void signOut() }],
+        [{ text: "OK", onPress: () => void signOut() }]
       );
     }
   }, [setUserState, signOut, token]);
@@ -69,7 +70,7 @@ export const HomeScreen: React.FC = () => {
       onBackgroundAttendanceChanged(() => {
         void fetchData();
       }),
-    [fetchData],
+    [fetchData]
   );
 
   // 画面を開いたとき・アプリが前面に戻ったときに最新の在室状況を取得する
@@ -80,7 +81,7 @@ export const HomeScreen: React.FC = () => {
         if (state === "active") void fetchData();
       });
       return () => subscription.remove();
-    }, [fetchData]),
+    }, [fetchData])
   );
 
   useEffect(() => {
@@ -89,47 +90,7 @@ export const HomeScreen: React.FC = () => {
 
     const setup = async () => {
       const result = await ensureBackgroundAttendanceMonitoring(token, user);
-      if (result.started) {
-        setLocationMessage(
-          "オフィスのビーコンを監視中です。圏内に入ると自動で入退室します。",
-        );
-        return;
-      }
-
-      switch (result.reason) {
-        case "background-denied":
-          setLocationMessage(
-            Platform.OS === "android"
-              ? "位置情報が「常に許可」でないため、ビーコンの自動検知を開始できません。設定アプリの「位置情報」で「常に許可」に変更してください。"
-              : "位置情報が「常に許可」でないため、ビーコンの自動検知を開始できません。設定アプリで「常に」に変更してください。",
-          );
-          break;
-        case "disclosure-declined":
-          setLocationMessage(
-            "位置情報の利用に同意されていないため、ビーコンの自動検知を開始できません。アプリを開き直すと、もう一度確認できます。",
-          );
-          break;
-        case "bluetooth-denied":
-          setLocationMessage(
-            "「付近のデバイス」が未許可のため、ビーコンの自動検知を開始できません。設定アプリで許可してください。",
-          );
-          break;
-        case "foreground-denied":
-          setLocationMessage(
-            "位置情報が未許可のため、ビーコンの自動検知を開始できません。",
-          );
-          break;
-        case "beacon-unavailable":
-          setLocationMessage(
-            "この実行環境ではビーコン検知を利用できません（Development Build が必要です）。",
-          );
-          break;
-        case "unsupported-office":
-          setLocationMessage(
-            "このオフィスはまだバックグラウンド監視の対象外です。",
-          );
-          break;
-      }
+      setLocationMessage(monitoringMessage(result, Platform.OS));
     };
 
     void setup();
@@ -157,11 +118,7 @@ export const HomeScreen: React.FC = () => {
           style: "destructive",
           onPress: async () => {
             try {
-              const response = await fetch(withApiPath(`/users/${user.id}`), {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
-              });
-              if (!response.ok) throw new Error("Failed to delete account");
+              await createUsersApi(token).usersIdDelete({ id: user.id });
               await signOut({ forgetCredentials: true });
             } catch (error) {
               console.error("Failed to delete account", error);
@@ -169,7 +126,7 @@ export const HomeScreen: React.FC = () => {
             }
           },
         },
-      ],
+      ]
     );
   }, [signOut, token, user]);
 
@@ -179,7 +136,7 @@ export const HomeScreen: React.FC = () => {
   const renderSymbol = (
     iosName: SymbolName,
     fallbackName: React.ComponentProps<typeof Feather>["name"],
-    color: string,
+    color: string
   ) => {
     if (Platform.OS === "ios") {
       return (

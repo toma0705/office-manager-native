@@ -1,7 +1,18 @@
+/**
+ * ビーコンによる自動入退室
+ *
+ * 流れ（詳しくは README の「自動入退室のしくみ」）
+ * 1. ログイン後、ホーム画面で ensureBackgroundAttendanceMonitoring が許可を求めて監視を始める
+ * 2. OS がビーコンの圏内・圏外を知らせる（アプリが終了していても OS が起こす）
+ *    - iOS: ここ（JS）で受け取り、サーバーの在室状態と照らして /arrive・/leave を呼ぶ
+ *    - Android: JS が動かないことがあるため、ネイティブ（AttendanceWorker.kt）が同じことをする
+ * 3. サーバーが入退室を保留し、時間が過ぎたら確定して Discord に通知する
+ *
+ * App.tsx がこのファイルを最初に読み込み、OS に起こされたときもイベントを受け取れるようにしている。
+ */
 import type { UserSafe } from "@office-manager/api-client";
-import * as Location from "expo-location";
-import { Alert, AppState, PermissionsAndroid, Platform } from "react-native";
-import { API_BASE_URL, TEST_MODE, withApiPath } from "@/constants/config";
+import { AppState } from "react-native";
+import { API_BASE_URL, TEST_MODE } from "@/constants/config";
 import {
   backgroundAttendanceStorage,
   createBackgroundAttendanceSnapshot,
@@ -18,12 +29,22 @@ import {
   stopMonitoring,
   type BeaconRegionState,
 } from "../../modules/office-beacon/src";
+import { fetchServerAttendance, postBeaconState } from "./beacon/attendanceApi";
+import { ACTION_PATHS, decideBeaconAction } from "./beacon/attendanceDecision";
+import type { MonitoringResult } from "./beacon/monitoringMessage";
+import {
+  confirmBackgroundLocationDisclosure,
+  requestBluetoothScanPermission,
+  requestLocationPermission,
+  requestTestNotificationPermission,
+} from "./beacon/permissions";
 
 const BEACON_REGION_ID = "office-manager-beacon";
-type AttendanceListener = (action: "enter" | "exit") => void;
+
+type AttendanceListener = () => void;
 const attendanceListeners = new Set<AttendanceListener>();
 
-/** 自動入退室が記録されたときに呼ばれる（画面側のデータ再取得用） */
+/** 自動入退室の記録が変わりそうなときに呼ばれる（画面で在室状況を取り直す） */
 export const onBackgroundAttendanceChanged = (listener: AttendanceListener) => {
   attendanceListeners.add(listener);
   return () => {
@@ -31,106 +52,49 @@ export const onBackgroundAttendanceChanged = (listener: AttendanceListener) => {
   };
 };
 
-const postAttendance = async (
-  snapshot: BackgroundAttendanceSnapshot,
-  path: "arrive" | "leave"
-) => {
-  const response = await fetch(withApiPath(`/users/${snapshot.userId}/${path}`), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${snapshot.token}`,
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Failed to ${path} in background`);
-  }
-};
-
 // 入室の保留は、確認の時間（サーバーの ENTER_CONFIRM_MINUTES = 1分）が過ぎると確定する。
 // 画面を開いたままでも入室中の表示に変わるよう、過ぎたころに在室状況を取り直してもらう
-const ENTER_CONFIRM_REFRESH_MS = 65 * 1000;
+export const ENTER_CONFIRM_REFRESH_MS = 65 * 1000;
 let confirmRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 const scheduleConfirmRefresh = () => {
   if (confirmRefreshTimer) clearTimeout(confirmRefreshTimer);
   confirmRefreshTimer = setTimeout(() => {
     confirmRefreshTimer = null;
-    attendanceListeners.forEach(listener => listener("enter"));
+    attendanceListeners.forEach(listener => listener());
   }, ENTER_CONFIRM_REFRESH_MS);
 };
 
-type ServerAttendance = {
-  entered: boolean;
-  exitPending: boolean;
-  enterPending: boolean;
-};
-
-/**
- * サーバー上の在室状態を取得する。Web での手動の入退室などで端末の記録とずれるため、
- * 判定はサーバーを正とする。取得できなければ null。
- */
-const fetchServerAttendance = async (
-  snapshot: BackgroundAttendanceSnapshot
-): Promise<ServerAttendance | null> => {
-  try {
-    const response = await fetch(withApiPath("/users/me"), {
-      headers: { Authorization: `Bearer ${snapshot.token}` },
-    });
-    if (!response.ok) return null;
-    const body = await response.json();
-    if (typeof body?.user?.entered !== "boolean") return null;
-    return {
-      entered: body.user.entered,
-      exitPending: body.user.entered && body.user.exitPendingSince != null,
-      enterPending: !body.user.entered && body.user.enterPendingSince != null,
-    };
-  } catch {
-    return null;
-  }
-};
-
-let processing: Promise<void> = Promise.resolve();
-
-/**
- * ビーコン状態を入退室に反映する。既に同じ状態なら何もしない。
- * 圏内・圏外になってもすぐには入退室にせず、サーバーで保留にする。
- * - 入室: 確認の時間（1分）の間に圏外にならなければ、サーバーが入室を確定して Discord に通知する。
- *   その間に圏外になれば取り消す（前を通っただけの人を入室にしない）。
- * - 退室: 猶予（15分）の間に戻らなければ、サーバーが退室を確定して Discord に通知する。
- *   その間に圏内に戻れば取り消す。
- */
-const applyBeaconState = async (state: BeaconRegionState) => {
+/** ビーコンの状態を入退室に反映する（iOS）。どの API を呼ぶかは decideBeaconAction が決める */
+export const applyBeaconState = async (state: BeaconRegionState) => {
   const snapshot = await backgroundAttendanceStorage.get();
   if (!snapshot) return;
 
   const server = await fetchServerAttendance(snapshot);
   if (server && server.entered !== snapshot.entered) {
     await backgroundAttendanceStorage.patch({ entered: server.entered });
-    snapshot.entered = server.entered;
   }
-  const exitPending = server?.exitPending ?? false;
-  const enterPending = server?.enterPending ?? false;
+  // サーバーに繋がらなければ、端末に覚えている在室状態で判断する
+  const action = decideBeaconAction(
+    state,
+    server ?? {
+      entered: snapshot.entered,
+      enterPending: false,
+      exitPending: false,
+    }
+  );
+  if (action === "none") return;
 
   try {
-    if (state === "inside") {
-      if (!snapshot.entered && !enterPending) {
-        await postAttendance(snapshot, "arrive");
-        scheduleConfirmRefresh();
-      } else if (exitPending) {
-        // 猶予の間に戻ってきたので保留を取り消す（Discord には通知しない）
-        await postAttendance(snapshot, "arrive");
-      }
-    } else if ((snapshot.entered && !exitPending) || enterPending) {
-      // 入室中なら退室を保留にし、入室の保留中なら取り消す
-      await postAttendance(snapshot, "leave");
-    }
+    await postBeaconState(snapshot, ACTION_PATHS[action]);
+    if (action === "requestEnter") scheduleConfirmRefresh();
   } catch (error) {
     console.warn("Failed to handle beacon event", error);
   }
 };
 
+// イベントは届いた順に 1 つずつ処理する（入ってすぐ出たときに順番が入れ替わらないように）
+let processing: Promise<void> = Promise.resolve();
 const enqueue = (state: BeaconRegionState) => {
   processing = processing.then(() => applyBeaconState(state));
   return processing;
@@ -146,7 +110,7 @@ if (handlesAttendanceNatively) {
   });
 }
 
-/** ビーコンの現在の状態を問い合わせ、サーバーの在室状態とずれていれば直す */
+/** ビーコンの現在の状態を OS に問い合わせ、サーバーの在室状態とずれていれば直す */
 const refreshIfMonitoring = async () => {
   const snapshot = await backgroundAttendanceStorage.get();
   if (snapshot) await refreshState();
@@ -162,7 +126,7 @@ AppState.addEventListener("change", state => {
   if (state === "active") void refreshIfMonitoring();
 });
 
-/** Android のネイティブ側に入退室 API の呼び出しに必要な情報を渡す */
+/** 端末に覚え、Android ではネイティブ側にも API の呼び出しに必要な情報を渡す */
 const saveSnapshot = async (snapshot: BackgroundAttendanceSnapshot) => {
   await backgroundAttendanceStorage.set(snapshot);
   if (handlesAttendanceNatively) {
@@ -170,62 +134,18 @@ const saveSnapshot = async (snapshot: BackgroundAttendanceSnapshot) => {
       apiBaseUrl: API_BASE_URL,
       token: snapshot.token,
       userId: snapshot.userId,
-      userName: snapshot.userName,
-      officeCode: snapshot.officeCode,
       testMode: TEST_MODE,
     });
   }
 };
 
-const confirmAsync = (title: string, message: string) =>
-  new Promise<boolean>(resolve => {
-    Alert.alert(
-      title,
-      message,
-      [
-        { text: "許可しない", style: "cancel", onPress: () => resolve(false) },
-        { text: "続ける", onPress: () => resolve(true) },
-      ],
-      { cancelable: false }
-    );
-  });
-
-/**
- * Google Play のポリシーにより、バックグラウンドの位置情報を求める前に
- * 用途をアプリ内で説明して同意を得る必要がある。
- */
-const confirmBackgroundLocationDisclosure = async () => {
-  if (Platform.OS !== "android") return true;
-  const background = await Location.getBackgroundPermissionsAsync();
-  if (background.status === "granted") return true;
-  return confirmAsync(
-    "位置情報の利用について",
-    "このアプリは、オフィスへの入退室を自動で記録するために、アプリを閉じているときや使用していないときも、位置情報と Bluetooth を使ってオフィスのビーコンを検知します。\n\n次の画面で位置情報を「常に許可」に設定してください。"
-  );
-};
-
-/** Android 12 以降は Bluetooth のスキャンに「付近のデバイス」の許可が必要 */
-const requestBluetoothScanPermission = async () => {
-  if (Platform.OS !== "android" || Platform.Version < 31) return true;
-  const result = await PermissionsAndroid.request(
-    PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN
-  );
-  return result === PermissionsAndroid.RESULTS.GRANTED;
-};
-
-/** テストモードの通知（Android 13 以降は許可が必要）。許可がなくても監視は続ける */
-const requestTestNotificationPermission = async () => {
-  if (!TEST_MODE || Platform.OS !== "android" || Platform.Version < 33) return;
-  await PermissionsAndroid.request(
-    PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-  );
-};
-
+/** ログイン・ログアウトのたびに呼ばれ、覚えている情報を最新にする */
 export const syncBackgroundAttendanceSnapshot = async (
   token: string | null,
   user: UserSafe | null
 ) => {
-  const snapshot = token && user ? createBackgroundAttendanceSnapshot(token, user) : null;
+  const snapshot =
+    token && user ? createBackgroundAttendanceSnapshot(token, user) : null;
   if (!snapshot) {
     await stopBackgroundAttendanceMonitoring();
     return;
@@ -238,56 +158,39 @@ export const stopBackgroundAttendanceMonitoring = async () => {
   await backgroundAttendanceStorage.remove();
 };
 
+/** 許可を求めて、ビーコンの監視を始める。始められなければ理由を返す */
 export const ensureBackgroundAttendanceMonitoring = async (
   token: string,
   user: UserSafe
-) => {
+): Promise<MonitoringResult> => {
   const snapshot = createBackgroundAttendanceSnapshot(token, user);
-  if (!snapshot) return { started: false, reason: "unsupported-office" as const };
-
-  if (!isBeaconSupported) {
-    return { started: false, reason: "beacon-unavailable" as const };
-  }
+  if (!snapshot) return { started: false, reason: "unsupported-office" };
+  if (!isBeaconSupported)
+    return { started: false, reason: "beacon-unavailable" };
 
   if (!(await confirmBackgroundLocationDisclosure())) {
-    return { started: false, reason: "disclosure-declined" as const };
+    return { started: false, reason: "disclosure-declined" };
   }
+  if (!(await requestLocationPermission("foreground"))) {
+    return { started: false, reason: "foreground-denied" };
+  }
+  const backgroundGranted = await requestLocationPermission("background");
 
-  // ビーコンの領域監視には位置情報の「常に許可」が必要
-  const foreground = await Location.getForegroundPermissionsAsync();
-  let foregroundStatus = foreground.status;
-  if (foregroundStatus !== "granted" && foreground.canAskAgain) {
-    foregroundStatus = (await Location.requestForegroundPermissionsAsync())
-      .status;
-  }
-  if (foregroundStatus !== "granted") {
-    return { started: false, reason: "foreground-denied" as const };
-  }
-
-  const background = await Location.getBackgroundPermissionsAsync();
-  let backgroundStatus = background.status;
-  if (backgroundStatus !== "granted" && background.canAskAgain) {
-    backgroundStatus = (await Location.requestBackgroundPermissionsAsync())
-      .status;
-  }
-
+  // 「常に許可」がなくても、あとで許可されたときのために覚えておく
   await saveSnapshot(snapshot);
 
-  if (backgroundStatus !== "granted") {
-    return { started: false, reason: "background-denied" as const };
-  }
-
+  if (!backgroundGranted)
+    return { started: false, reason: "background-denied" };
   if (!(await requestBluetoothScanPermission())) {
-    return { started: false, reason: "bluetooth-denied" as const };
+    return { started: false, reason: "bluetooth-denied" };
   }
-
   await requestTestNotificationPermission();
 
   const started = await startMonitoring({
     ...snapshot.beacon,
     identifier: BEACON_REGION_ID,
   });
-  if (!started) return { started: false, reason: "beacon-unavailable" as const };
-
-  return { started: true as const };
+  return started
+    ? { started: true }
+    : { started: false, reason: "beacon-unavailable" };
 };

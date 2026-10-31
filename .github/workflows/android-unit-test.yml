@@ -1,0 +1,44 @@
+# Android のネイティブ部分（ビーコンの検知と入退室の判定）の単体テスト。
+# 時間がかかるので、関係するファイルが変わったときだけ実行する
+name: Android 単体テスト
+
+on:
+  pull_request:
+    paths:
+      - modules/office-beacon/**
+      - plugins/**
+      - app.config.js
+      - package.json
+      - package-lock.json
+      - .github/workflows/android-unit-test.yml
+  push:
+    branches: [main]
+    paths:
+      - modules/office-beacon/**
+
+concurrency:
+  group: android-unit-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Kotlin の単体テスト
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - run: npm ci
+      - name: android フォルダを生成
+        run: npx expo prebuild --platform android --no-install
+      - name: 単体テスト（AttendanceDecisionTest など）
+        working-directory: android
+        run: ./gradlew :office-beacon:testDebugUnitTest --console=plain

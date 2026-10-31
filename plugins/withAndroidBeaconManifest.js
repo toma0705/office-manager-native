@@ -10,7 +10,8 @@ module.exports = function withAndroidBeaconManifest(config) {
     const manifest = config.modResults;
     manifest.manifest.$["xmlns:tools"] ??= "http://schemas.android.com/tools";
 
-    const application = AndroidConfig.Manifest.getMainApplicationOrThrow(manifest);
+    const application =
+      AndroidConfig.Manifest.getMainApplicationOrThrow(manifest);
     application.service ??= [];
     const existing = application.service.find(
       service => service.$["android:name"] === BEACON_SERVICE

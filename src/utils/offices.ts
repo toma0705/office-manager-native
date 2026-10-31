@@ -13,7 +13,7 @@ const resolvePriority = (
   priorityKeywords: readonly string[]
 ): number => {
   const name = office.name ?? "";
-  const index = priorityKeywords.findIndex((keyword) => name.includes(keyword));
+  const index = priorityKeywords.findIndex(keyword => name.includes(keyword));
   return index >= 0 ? index : Number.MAX_SAFE_INTEGER;
 };
 

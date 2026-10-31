@@ -18,13 +18,9 @@ import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 
 /**
- * ビーコンの状態を入退室に反映する（JS の backgroundBeacon.ts の applyBeaconState と同じ流れ）。
- * サーバーの在室状態を正とし、既に同じ状態なら何もしない。
- * 圏内・圏外になってもすぐには入退室にせず、サーバーで保留にする。
- * - 入室: 確認の時間（1分）の間に圏外にならなければ、サーバーが入室を確定して Discord に通知する。
- *   その間に圏外になれば取り消す（前を通っただけの人を入室にしない）。
- * - 退室: 猶予（15分）の間に戻らなければ、サーバーが退室を確定して Discord に通知する。
- *   その間に圏内に戻れば取り消す。
+ * ビーコンの状態を入退室に反映する（iOS は JS の backgroundBeacon.ts が同じことをしている）。
+ * サーバーの在室状態を正とし、どの API を呼ぶかは AttendanceDecision が決める。
+ * Android ではアプリが終了していると JS が動かないため、ここで API を呼ぶ。
  */
 class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
 
@@ -38,10 +34,12 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
 
     return try {
       val server = fetchServerAttendance(config)
-      when {
-        inside && !server.entered && !server.enterPending -> {
-          request(config, "POST", "/users/${config.userId}/arrive")
-          Log.i(TAG, "requested pending enter")
+      val action = AttendanceDecision.decide(inside, server)
+      action.path?.let { request(config, "POST", "/users/${config.userId}/$it") }
+      Log.i(TAG, "beacon $state: $action")
+
+      when (action) {
+        BeaconAction.REQUEST_ENTER -> {
           notifyTest(
             config,
             "入室を保留しました",
@@ -49,36 +47,28 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
           )
           BeaconController.dispatchAttendanceChanged("arrive")
         }
-        inside && server.exitPending -> {
-          // 猶予の間に戻ってきたので保留を取り消す（Discord には通知しない）
-          request(config, "POST", "/users/${config.userId}/arrive")
-          Log.i(TAG, "cancelled pending exit")
+        // 猶予の間に戻ってきたので保留を取り消した（Discord には通知しない）
+        BeaconAction.CANCEL_EXIT ->
           notifyTest(config, "退室の保留を取り消しました", "猶予の間に戻ったため、入室中のままです。")
-        }
-        !inside && server.entered && !server.exitPending -> {
-          request(config, "POST", "/users/${config.userId}/leave")
-          Log.i(TAG, "requested pending exit")
+        BeaconAction.REQUEST_EXIT ->
           notifyTest(
             config,
             "退室を保留しました",
             "猶予の間に戻らなければ、サーバーが退室を記録して Discord に通知します。",
           )
-        }
-        !inside && server.enterPending -> {
-          // 前を通っただけなので入室にしない（Discord には通知しない）
-          request(config, "POST", "/users/${config.userId}/leave")
-          Log.i(TAG, "cancelled pending enter")
+        // 前を通っただけなので入室にしなかった（Discord には通知しない）
+        BeaconAction.CANCEL_ENTER ->
           notifyTest(config, "入室の保留を取り消しました", "1分の間に圏外になったため、入室にしませんでした。")
-        }
-        inputData.getString(KEY_SOURCE) == "event" -> {
-          val current = when {
-            server.exitPending -> "退室の保留中"
-            server.enterPending -> "入室の保留中"
-            server.entered -> "入室中"
-            else -> "退室中"
+        BeaconAction.NONE ->
+          if (inputData.getString(KEY_SOURCE) == "event") {
+            val current = when {
+              server.exitPending -> "退室の保留中"
+              server.enterPending -> "入室の保留中"
+              server.entered -> "入室中"
+              else -> "退室中"
+            }
+            notifyTest(config, "${current}のままです", "すでに${current}のため、記録は不要でした。")
           }
-          notifyTest(config, "${current}のままです", "すでに${current}のため、記録は不要でした。")
-        }
       }
       Result.success()
     } catch (e: HttpException) {
@@ -113,19 +103,13 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
     TestNotifier.notify(applicationContext, id, title, "$detectedAt $trigger: $text")
   }
 
-  private class ServerAttendance(
-    val entered: Boolean,
-    val exitPending: Boolean,
-    val enterPending: Boolean,
-  )
-
   private fun fetchServerAttendance(config: AttendanceConfig): ServerAttendance {
     val user = JSONObject(request(config, "GET", "/users/me")).getJSONObject("user")
     val entered = user.getBoolean("entered")
     return ServerAttendance(
-      entered,
-      entered && !user.isNull("exitPendingSince"),
-      !entered && !user.isNull("enterPendingSince"),
+      entered = entered,
+      enterPending = !entered && !user.isNull("enterPendingSince"),
+      exitPending = entered && !user.isNull("exitPendingSince"),
     )
   }
 

@@ -1,0 +1,67 @@
+{
+  "description": "ビーコンの状態とサーバーの在室状態から、どの操作をするかの表。iOS（src/services/beacon/attendanceDecision.ts）と Android（AttendanceDecision.kt）の両方のテストがこの表を使い、判定がずれないようにしている。",
+  "serverStates": {
+    "exited": { "entered": false, "enterPending": false, "exitPending": false },
+    "enterPending": {
+      "entered": false,
+      "enterPending": true,
+      "exitPending": false
+    },
+    "entered": { "entered": true, "enterPending": false, "exitPending": false },
+    "exitPending": {
+      "entered": true,
+      "enterPending": false,
+      "exitPending": true
+    }
+  },
+  "cases": [
+    {
+      "name": "退室中に圏内 → 入室の保留を始める",
+      "beacon": "inside",
+      "server": "exited",
+      "action": "requestEnter"
+    },
+    {
+      "name": "入室の保留中に圏内 → 何もしない（最初の時刻を保つ）",
+      "beacon": "inside",
+      "server": "enterPending",
+      "action": "none"
+    },
+    {
+      "name": "入室中に圏内 → 何もしない",
+      "beacon": "inside",
+      "server": "entered",
+      "action": "none"
+    },
+    {
+      "name": "退室の保留中に圏内 → 保留を取り消す（猶予の間に戻った）",
+      "beacon": "inside",
+      "server": "exitPending",
+      "action": "cancelExit"
+    },
+    {
+      "name": "退室中に圏外 → 何もしない",
+      "beacon": "outside",
+      "server": "exited",
+      "action": "none"
+    },
+    {
+      "name": "入室の保留中に圏外 → 保留を取り消す（前を通っただけ）",
+      "beacon": "outside",
+      "server": "enterPending",
+      "action": "cancelEnter"
+    },
+    {
+      "name": "入室中に圏外 → 退室の保留を始める",
+      "beacon": "outside",
+      "server": "entered",
+      "action": "requestExit"
+    },
+    {
+      "name": "退室の保留中に圏外 → 何もしない（最初の時刻を保つ）",
+      "beacon": "outside",
+      "server": "exitPending",
+      "action": "none"
+    }
+  ]
+}

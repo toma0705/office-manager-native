@@ -50,7 +50,7 @@ export const EnteredUsersList: React.FC<Props> = ({
   return (
     <FlatList
       data={sortedUsers}
-      keyExtractor={(item) => item.id.toString()}
+      keyExtractor={item => item.id.toString()}
       renderItem={({ item }) => <EnteredUserItem user={item} />}
       ListHeaderComponent={header ?? undefined}
       ListFooterComponent={footer ?? undefined}

@@ -89,7 +89,9 @@ const withSceneManifest = config =>
 const withoutWindowInAppDelegate = config =>
   withAppDelegate(config, cfg => {
     if (cfg.modResults.language !== "swift") {
-      throw new Error("withSceneLifecycle: Swift の AppDelegate のみ対応しています");
+      throw new Error(
+        "withSceneLifecycle: Swift の AppDelegate のみ対応しています"
+      );
     }
     const startBlock =
       /#if os\(iOS\) \|\| os\(tvOS\)\n\s*window = UIWindow\(frame: UIScreen\.main\.bounds\)\n\s*factory\.startReactNative\([\s\S]*?\)\n#endif\n/;
