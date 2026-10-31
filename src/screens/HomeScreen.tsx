@@ -220,7 +220,7 @@ export const HomeScreen: React.FC = () => {
       <Text style={styles.locationStatus}>{locationMessage}</Text>
       {TEST_MODE && (
         <Text style={styles.testModeNotice}>
-          テストモード: 入退室は Discord に通知せず、この端末に通知します
+          テストモード: 検知と記録の結果をこの端末に通知します
         </Text>
       )}
 

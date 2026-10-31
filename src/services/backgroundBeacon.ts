@@ -33,7 +33,7 @@ export const onBackgroundAttendanceChanged = (listener: AttendanceListener) => {
 
 const postAttendance = async (
   snapshot: BackgroundAttendanceSnapshot,
-  path: "enter" | "leave"
+  path: "arrive" | "leave"
 ) => {
   const response = await fetch(withApiPath(`/users/${snapshot.userId}/${path}`), {
     method: "POST",
@@ -48,32 +48,24 @@ const postAttendance = async (
   }
 };
 
-const recordEnter = async (snapshot: BackgroundAttendanceSnapshot) => {
-  await postAttendance(snapshot, "enter");
+// 入室の保留は、確認の時間（サーバーの ENTER_CONFIRM_MINUTES = 1分）が過ぎると確定する。
+// 画面を開いたままでも入室中の表示に変わるよう、過ぎたころに在室状況を取り直してもらう
+const ENTER_CONFIRM_REFRESH_MS = 65 * 1000;
+let confirmRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // テストモードでは Discord に通知しない
-  if (!TEST_MODE) {
-    await fetch(`${API_BASE_URL}/notify`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${snapshot.token}`,
-      },
-      body: JSON.stringify({
-        user: snapshot.userName,
-        status: "入室",
-        officeCode: snapshot.officeCode,
-      }),
-    }).catch(error => {
-      console.warn("Failed to notify background attendance", error);
-    });
-  }
-
-  await backgroundAttendanceStorage.patch({ entered: true });
-  attendanceListeners.forEach(listener => listener("enter"));
+const scheduleConfirmRefresh = () => {
+  if (confirmRefreshTimer) clearTimeout(confirmRefreshTimer);
+  confirmRefreshTimer = setTimeout(() => {
+    confirmRefreshTimer = null;
+    attendanceListeners.forEach(listener => listener("enter"));
+  }, ENTER_CONFIRM_REFRESH_MS);
 };
 
-type ServerAttendance = { entered: boolean; exitPending: boolean };
+type ServerAttendance = {
+  entered: boolean;
+  exitPending: boolean;
+  enterPending: boolean;
+};
 
 /**
  * サーバー上の在室状態を取得する。Web での手動の入退室などで端末の記録とずれるため、
@@ -92,6 +84,7 @@ const fetchServerAttendance = async (
     return {
       entered: body.user.entered,
       exitPending: body.user.entered && body.user.exitPendingSince != null,
+      enterPending: !body.user.entered && body.user.enterPendingSince != null,
     };
   } catch {
     return null;
@@ -102,8 +95,11 @@ let processing: Promise<void> = Promise.resolve();
 
 /**
  * ビーコン状態を入退室に反映する。既に同じ状態なら何もしない。
- * 圏外になってもすぐには退室にせず、サーバーで保留にする（猶予の間に戻らなければ
- * サーバーが退室を確定して Discord に通知する）。保留中に圏内に戻れば取り消す。
+ * 圏内・圏外になってもすぐには入退室にせず、サーバーで保留にする。
+ * - 入室: 確認の時間（1分）の間に圏外にならなければ、サーバーが入室を確定して Discord に通知する。
+ *   その間に圏外になれば取り消す（前を通っただけの人を入室にしない）。
+ * - 退室: 猶予（15分）の間に戻らなければ、サーバーが退室を確定して Discord に通知する。
+ *   その間に圏内に戻れば取り消す。
  */
 const applyBeaconState = async (state: BeaconRegionState) => {
   const snapshot = await backgroundAttendanceStorage.get();
@@ -115,16 +111,19 @@ const applyBeaconState = async (state: BeaconRegionState) => {
     snapshot.entered = server.entered;
   }
   const exitPending = server?.exitPending ?? false;
+  const enterPending = server?.enterPending ?? false;
 
   try {
     if (state === "inside") {
-      if (!snapshot.entered) {
-        await recordEnter(snapshot);
+      if (!snapshot.entered && !enterPending) {
+        await postAttendance(snapshot, "arrive");
+        scheduleConfirmRefresh();
       } else if (exitPending) {
         // 猶予の間に戻ってきたので保留を取り消す（Discord には通知しない）
-        await postAttendance(snapshot, "enter");
+        await postAttendance(snapshot, "arrive");
       }
-    } else if (snapshot.entered && !exitPending) {
+    } else if ((snapshot.entered && !exitPending) || enterPending) {
+      // 入室中なら退室を保留にし、入室の保留中なら取り消す
       await postAttendance(snapshot, "leave");
     }
   } catch (error) {
@@ -139,12 +138,8 @@ const enqueue = (state: BeaconRegionState) => {
 
 // モジュール読み込み時（バックグラウンド起動時を含む）にリスナーを登録する
 if (handlesAttendanceNatively) {
-  // Android は検知後の記録までネイティブ側で行うので、結果だけ受け取る
-  addAttendanceChangedListener(action => {
-    void backgroundAttendanceStorage
-      .patch({ entered: action === "enter" })
-      .then(() => attendanceListeners.forEach(listener => listener(action)));
-  });
+  // Android は検知後の記録までネイティブ側で行うので、入室を保留にしたことだけ受け取る
+  addAttendanceChangedListener(() => scheduleConfirmRefresh());
 } else {
   addRegionStateListener(event => {
     void enqueue(event.state);

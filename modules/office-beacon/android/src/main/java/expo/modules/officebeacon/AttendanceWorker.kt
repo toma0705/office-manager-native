@@ -20,8 +20,11 @@ import org.json.JSONObject
 /**
  * ビーコンの状態を入退室に反映する（JS の backgroundBeacon.ts の applyBeaconState と同じ流れ）。
  * サーバーの在室状態を正とし、既に同じ状態なら何もしない。
- * 圏外になってもすぐには退室にせず、サーバーで保留にする（猶予の間に戻らなければ
- * サーバーが退室を確定して Discord に通知する）。保留中に圏内に戻れば取り消す。
+ * 圏内・圏外になってもすぐには入退室にせず、サーバーで保留にする。
+ * - 入室: 確認の時間（1分）の間に圏外にならなければ、サーバーが入室を確定して Discord に通知する。
+ *   その間に圏外になれば取り消す（前を通っただけの人を入室にしない）。
+ * - 退室: 猶予（15分）の間に戻らなければ、サーバーが退室を確定して Discord に通知する。
+ *   その間に圏内に戻れば取り消す。
  */
 class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
 
@@ -36,17 +39,19 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
     return try {
       val server = fetchServerAttendance(config)
       when {
-        inside && !server.entered -> {
-          request(config, "POST", "/users/${config.userId}/enter")
-          // テストモードでは Discord に通知しない
-          if (!config.testMode) notifyEnter(config)
-          Log.i(TAG, "recorded enter")
-          notifyTest(config, "入室を記録しました", "入室を記録しました（Discord には通知していません）。")
-          BeaconController.dispatchAttendanceChanged("enter")
+        inside && !server.entered && !server.enterPending -> {
+          request(config, "POST", "/users/${config.userId}/arrive")
+          Log.i(TAG, "requested pending enter")
+          notifyTest(
+            config,
+            "入室を保留しました",
+            "1分の間に圏外にならなければ、サーバーが入室を記録して Discord に通知します。",
+          )
+          BeaconController.dispatchAttendanceChanged("arrive")
         }
         inside && server.exitPending -> {
           // 猶予の間に戻ってきたので保留を取り消す（Discord には通知しない）
-          request(config, "POST", "/users/${config.userId}/enter")
+          request(config, "POST", "/users/${config.userId}/arrive")
           Log.i(TAG, "cancelled pending exit")
           notifyTest(config, "退室の保留を取り消しました", "猶予の間に戻ったため、入室中のままです。")
         }
@@ -59,9 +64,16 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
             "猶予の間に戻らなければ、サーバーが退室を記録して Discord に通知します。",
           )
         }
+        !inside && server.enterPending -> {
+          // 前を通っただけなので入室にしない（Discord には通知しない）
+          request(config, "POST", "/users/${config.userId}/leave")
+          Log.i(TAG, "cancelled pending enter")
+          notifyTest(config, "入室の保留を取り消しました", "1分の間に圏外になったため、入室にしませんでした。")
+        }
         inputData.getString(KEY_SOURCE) == "event" -> {
           val current = when {
             server.exitPending -> "退室の保留中"
+            server.enterPending -> "入室の保留中"
             server.entered -> "入室中"
             else -> "退室中"
           }
@@ -101,43 +113,30 @@ class AttendanceWorker(context: Context, params: WorkerParameters) : Worker(cont
     TestNotifier.notify(applicationContext, id, title, "$detectedAt $trigger: $text")
   }
 
-  private class ServerAttendance(val entered: Boolean, val exitPending: Boolean)
+  private class ServerAttendance(
+    val entered: Boolean,
+    val exitPending: Boolean,
+    val enterPending: Boolean,
+  )
 
   private fun fetchServerAttendance(config: AttendanceConfig): ServerAttendance {
     val user = JSONObject(request(config, "GET", "/users/me")).getJSONObject("user")
     val entered = user.getBoolean("entered")
-    return ServerAttendance(entered, entered && !user.isNull("exitPendingSince"))
+    return ServerAttendance(
+      entered,
+      entered && !user.isNull("exitPendingSince"),
+      !entered && !user.isNull("enterPendingSince"),
+    )
   }
 
-  private fun notifyEnter(config: AttendanceConfig) {
-    val payload = JSONObject()
-      .put("user", config.userName)
-      .put("status", "入室")
-      .put("officeCode", config.officeCode)
-    try {
-      request(config, "POST", "/notify", payload)
-    } catch (e: IOException) {
-      Log.w(TAG, "failed to notify attendance", e)
-    }
-  }
-
-  private fun request(
-    config: AttendanceConfig,
-    method: String,
-    path: String,
-    body: JSONObject? = null,
-  ): String {
+  private fun request(config: AttendanceConfig, method: String, path: String): String {
     val connection = URL("${config.apiBaseUrl}$path").openConnection() as HttpURLConnection
     try {
       connection.requestMethod = method
       connection.connectTimeout = TIMEOUT_MS
       connection.readTimeout = TIMEOUT_MS
       connection.setRequestProperty("Authorization", "Bearer ${config.token}")
-      if (body != null) {
-        connection.doOutput = true
-        connection.setRequestProperty("Content-Type", "application/json")
-        connection.outputStream.use { it.write(body.toString().toByteArray()) }
-      } else if (method == "POST") {
+      if (method == "POST") {
         connection.doOutput = true
         connection.setFixedLengthStreamingMode(0)
       }

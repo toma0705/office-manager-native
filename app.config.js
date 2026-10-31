@@ -1,5 +1,6 @@
 // 実機確認用のテストモード（ビルド時に OFFICE_MANAGER_TEST_MODE=1 を指定する）。
-// 入退室を Discord に通知せず、端末の通知で検知と記録の結果を知らせる。本番のビルドでは使わない
+// 検知と記録の結果を端末の通知で知らせる（入退室の確定はサーバーが行うので、Discord にも通知される）。
+// 本番のビルドでは使わない
 const TEST_MODE = process.env.OFFICE_MANAGER_TEST_MODE === "1";
 
 /** @type {import('expo/config').ExpoConfig} */
@@ -25,7 +26,7 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.toma0705.officemanager",
-    buildNumber: "15",
+    buildNumber: "16",
     icon: "./assets/office-manager-icon.png",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
@@ -65,7 +66,7 @@ const config = {
       "android.permission.FOREGROUND_SERVICE",
       "android.permission.FOREGROUND_SERVICE_LOCATION",
     ],
-    versionCode: 3,
+    versionCode: 4,
   },
   web: {
     favicon: "./assets/favicon.png",
