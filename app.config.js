@@ -12,12 +12,6 @@ const config = {
   orientation: "portrait",
   icon: "./assets/office-manager-icon.png",
   userInterfaceStyle: "light",
-  updates: {
-    url: "https://u.expo.dev/98a48421-8173-486e-92b8-71d9569e2b77",
-  },
-  runtimeVersion: {
-    policy: "appVersion",
-  },
   splash: {
     image: "./assets/splash-icon.png",
     resizeMode: "contain",
@@ -33,16 +27,11 @@ const config = {
       // ビーコン領域監視に必要なのは location のみ。
       // processing を残すと BGTaskSchedulerPermittedIdentifiers が必須になりアップロードが拒否される
       UIBackgroundModes: ["location"],
+      // 位置情報と写真ライブラリの説明文は、下の expo-location・expo-image-picker の設定で入る
       NSFaceIDUsageDescription:
         "Face IDを使用してアカウントに安全にログインします。",
-      NSLocationAlwaysAndWhenInUseUsageDescription:
-        "アプリを閉じていてもオフィスのビーコンを検知し、自動で入退室を記録するために位置情報を利用します。",
-      NSLocationWhenInUseUsageDescription:
-        "オフィスのビーコンを検知して、自動で入退室を記録するために位置情報を利用します。",
       NSBluetoothAlwaysUsageDescription:
         "オフィスに設置されたビーコンを検知して、自動で入退室を記録するためにBluetoothを利用します。",
-      NSPhotoLibraryUsageDescription:
-        "プロフィール画像を設定するために写真ライブラリにアクセスします。",
     },
   },
   android: {
@@ -68,11 +57,7 @@ const config = {
     ],
     versionCode: 4,
   },
-  web: {
-    favicon: "./assets/favicon.png",
-  },
   plugins: [
-    "expo-updates",
     "expo-secure-store",
     "./plugins/withPodsDeploymentTarget",
     "./plugins/withSceneLifecycle",

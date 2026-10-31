@@ -1,35 +1,30 @@
 import React, { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableWithoutFeedback,
-  View,
-} from "react-native";
-import Constants from "expo-constants";
-import * as LocalAuthentication from "expo-local-authentication";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { SymbolView } from "expo-symbols";
-import { Feather } from "@expo/vector-icons";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { LinkButton } from "@/components/ui/LinkButton";
-import { useAuth } from "@/hooks/useAuth";
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { PlatformIcon } from "@/components/ui/PlatformIcon";
+import { Spinner } from "@/components/ui/Spinner";
+import { useAuth } from "@/context/AuthContext";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import type { UsersLoginPostRequest } from "@office-manager/api-client";
 import { colors } from "@/theme/colors";
 import { credentialStorage } from "@/storage/credentialStorage";
+import {
+  authenticateWithBiometrics,
+  canUseBiometrics,
+  EXPO_GO_BIOMETRICS_MESSAGE,
+} from "@/services/biometrics";
 
 export const LoginScreen: React.FC = () => {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { signIn, status } = useAuth();
-  const shouldRequireBiometric = Constants.appOwnership !== "expo";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,12 +34,6 @@ export const LoginScreen: React.FC = () => {
   const [biometricVisible, setBiometricVisible] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [biometricError, setBiometricError] = useState("");
-
-  useEffect(() => {
-    if (status === "signedIn") {
-      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
-    }
-  }, [navigation, status]);
 
   useEffect(() => {
     let active = true;
@@ -57,7 +46,7 @@ export const LoginScreen: React.FC = () => {
             setSavedCredentials(saved);
             setEmail(saved.email);
             setBiometricError("");
-            setBiometricVisible(shouldRequireBiometric);
+            setBiometricVisible(canUseBiometrics);
           } else {
             setSavedCredentials(null);
             setBiometricVisible(false);
@@ -79,7 +68,7 @@ export const LoginScreen: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [status, shouldRequireBiometric]);
+  }, [status]);
 
   const handleBiometricDismiss = () => {
     if (biometricLoading) return;
@@ -88,10 +77,8 @@ export const LoginScreen: React.FC = () => {
 
   const handleBiometricOpen = () => {
     if (!savedCredentials) return;
-    if (!shouldRequireBiometric) {
-      setBiometricError(
-        "Expo Go では顔認証を利用できません。通常ログインをご利用ください。"
-      );
+    if (!canUseBiometrics) {
+      setBiometricError(EXPO_GO_BIOMETRICS_MESSAGE);
       setBiometricVisible(false);
       return;
     }
@@ -99,12 +86,18 @@ export const LoginScreen: React.FC = () => {
     setBiometricVisible(true);
   };
 
+  /** 保存しているログイン情報を忘れ、手動でログインしてもらう */
+  const forgetSavedCredentials = async (message: string) => {
+    setBiometricError(message);
+    await credentialStorage.remove();
+    setSavedCredentials(null);
+    setBiometricVisible(false);
+  };
+
   const handleBiometricLogin = async () => {
     if (!savedCredentials || biometricLoading) return;
-    if (!shouldRequireBiometric) {
-      setBiometricError(
-        "Expo Go では顔認証を利用できません。通常ログインをご利用ください。"
-      );
+    if (!canUseBiometrics) {
+      setBiometricError(EXPO_GO_BIOMETRICS_MESSAGE);
       setBiometricVisible(false);
       return;
     }
@@ -112,67 +105,42 @@ export const LoginScreen: React.FC = () => {
     setBiometricLoading(true);
     let signedInSuccessfully = false;
     try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      if (!hasHardware) {
-        setBiometricError("この端末では顔認証を利用できません。");
-        return;
-      }
-
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      if (!enrolled) {
-        setBiometricError("顔認証が設定されていません。");
-        return;
-      }
-
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "顔認証でログイン",
-        cancelLabel: "キャンセル",
-        fallbackLabel: "パスコードを入力",
-        disableDeviceFallback: false,
-      });
-      const warningMessage = (result as { warning?: unknown }).warning;
-      if (
-        typeof warningMessage === "string" &&
-        warningMessage.includes("NSFaceIDUsageDescription")
-      ) {
-        setBiometricError(
-          "Face ID を利用するには iOS の設定でこのアプリにFace ID利用許可(NSFaceIDUsageDescription)を付与する必要があります。Expo Go ではご利用いただけません。"
-        );
-        await credentialStorage.remove();
-        setSavedCredentials(null);
-        setBiometricVisible(false);
-        return;
-      }
-
-      if (!result.success) {
-        if (result.error && result.error !== "user_cancel") {
-          setBiometricError("顔認証に失敗しました。再度お試しください。");
+      const result = await authenticateWithBiometrics("顔認証でログイン");
+      if (!result.ok) {
+        switch (result.reason) {
+          case "no-hardware":
+            setBiometricError("この端末では顔認証を利用できません。");
+            break;
+          case "not-enrolled":
+            setBiometricError("顔認証が設定されていません。");
+            break;
+          case "missing-usage-description":
+            await forgetSavedCredentials(
+              "Face ID を利用するには iOS の設定でこのアプリにFace ID利用許可(NSFaceIDUsageDescription)を付与する必要があります。Expo Go ではご利用いただけません。"
+            );
+            break;
+          case "failed":
+            setBiometricError("顔認証に失敗しました。再度お試しください。");
+            break;
+          case "cancelled":
+            break;
         }
         return;
       }
 
       setLoading(true);
       setErrorMessage("");
-      await signIn({
-        email: savedCredentials.email,
-        password: savedCredentials.password,
-      });
+      await signIn(savedCredentials);
       signedInSuccessfully = true;
       setBiometricVisible(false);
     } catch (error) {
       console.error("Failed to login via biometrics", error);
-      console.error(error instanceof Error ? error.stack : null);
-      setBiometricError(
+      await forgetSavedCredentials(
         "顔認証でのログインに失敗しました。手動でログインしてください。"
       );
-      await credentialStorage.remove();
-      setSavedCredentials(null);
-      setBiometricVisible(false);
     } finally {
       setBiometricLoading(false);
-      if (!signedInSuccessfully) {
-        setLoading(false);
-      }
+      if (!signedInSuccessfully) setLoading(false);
     }
   };
 
@@ -244,81 +212,61 @@ export const LoginScreen: React.FC = () => {
         </View>
       </PageContainer>
 
-      <Modal
+      <BottomSheet
         visible={biometricVisible && Boolean(savedCredentials)}
-        transparent
-        animationType="slide"
-        onRequestClose={handleBiometricDismiss}
+        onClose={handleBiometricDismiss}
+        style={styles.biometricSheet}
       >
-        <TouchableWithoutFeedback
-          onPress={biometricLoading ? () => {} : handleBiometricDismiss}
+        <Pressable
+          style={styles.biometricCloseButton}
+          onPress={handleBiometricDismiss}
+          disabled={biometricLoading}
+          accessibilityLabel="顔認証ポップアップを閉じる"
         >
-          <View style={styles.biometricOverlay}>
-            <TouchableWithoutFeedback onPress={() => {}}>
-              <View style={styles.biometricSheet}>
-                <Pressable
-                  style={styles.biometricCloseButton}
-                  onPress={handleBiometricDismiss}
-                  disabled={biometricLoading}
-                  accessibilityLabel="顔認証ポップアップを閉じる"
-                >
-                  {Platform.OS === "ios" ? (
-                    <SymbolView
-                      name="xmark.circle.fill"
-                      style={styles.biometricCloseSymbol}
-                      tintColor={colors.mutedText}
-                    />
-                  ) : (
-                    <Feather
-                      name="x-circle"
-                      size={28}
-                      color={colors.mutedText}
-                    />
-                  )}
-                </Pressable>
-                <View style={styles.biometricIconWrapper}>
-                  {Platform.OS === "ios" ? (
-                    <SymbolView
-                      name="faceid"
-                      style={styles.biometricSymbol}
-                      weight="regular"
-                      scale="large"
-                      tintColor={colors.primaryDark}
-                    />
-                  ) : (
-                    <Text style={styles.biometricIcon}>🙂</Text>
-                  )}
-                </View>
-                <Text style={styles.biometricTitle}>サインイン</Text>
-                {savedCredentials ? (
-                  <Text style={styles.biometricDescription}>
-                    {`"${savedCredentials.email}" のパスワードを使用してログインしますか？`}
-                  </Text>
-                ) : null}
-                {biometricError ? (
-                  <Text style={styles.biometricError}>{biometricError}</Text>
-                ) : null}
-                <Pressable
-                  style={[
-                    styles.biometricPrimaryButton,
-                    biometricLoading && styles.biometricPrimaryButtonDisabled,
-                  ]}
-                  onPress={handleBiometricLogin}
-                  disabled={biometricLoading}
-                >
-                  {biometricLoading ? (
-                    <ActivityIndicator color={colors.white} />
-                  ) : (
-                    <Text style={styles.biometricPrimaryLabel}>
-                      パスワードを入力
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+          <PlatformIcon
+            ios="xmark.circle.fill"
+            android="x-circle"
+            size={28}
+            color={colors.mutedText}
+          />
+        </Pressable>
+        <View style={styles.biometricIconWrapper}>
+          {Platform.OS === "ios" ? (
+            <SymbolView
+              name="faceid"
+              style={styles.biometricSymbol}
+              weight="regular"
+              scale="large"
+              tintColor={colors.primaryDark}
+            />
+          ) : (
+            <Text style={styles.biometricIcon}>🙂</Text>
+          )}
+        </View>
+        <Text style={styles.biometricTitle}>サインイン</Text>
+        {savedCredentials ? (
+          <Text style={styles.biometricDescription}>
+            {`"${savedCredentials.email}" のパスワードを使用してログインしますか？`}
+          </Text>
+        ) : null}
+        {biometricError ? (
+          <Text style={styles.biometricError}>{biometricError}</Text>
+        ) : null}
+        <Pressable
+          style={[
+            styles.biometricPrimaryButton,
+            biometricLoading && styles.biometricPrimaryButtonDisabled,
+          ]}
+          onPress={handleBiometricLogin}
+          disabled={biometricLoading}
+        >
+          {biometricLoading ? (
+            <Spinner size="small" color={colors.white} />
+          ) : (
+            <Text style={styles.biometricPrimaryLabel}>パスワードを入力</Text>
+          )}
+        </Pressable>
+      </BottomSheet>
     </>
   );
 };
@@ -344,19 +292,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
   },
-  biometricOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
   biometricSheet: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
     paddingTop: 32,
-    paddingBottom: 24,
-    gap: 16,
   },
   biometricCloseButton: {
     position: "absolute",
@@ -367,10 +304,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-  },
-  biometricCloseSymbol: {
-    width: 28,
-    height: 28,
   },
   biometricIconWrapper: {
     alignSelf: "center",
@@ -416,11 +349,6 @@ const styles = StyleSheet.create({
   biometricPrimaryLabel: {
     color: colors.white,
     fontSize: 16,
-    fontWeight: "600",
-  },
-  biometricSecondaryButton: {
-    textAlign: "center",
-    color: colors.primaryDark,
     fontWeight: "600",
   },
 });

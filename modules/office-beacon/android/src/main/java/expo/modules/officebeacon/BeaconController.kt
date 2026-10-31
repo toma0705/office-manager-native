@@ -193,9 +193,6 @@ object BeaconController {
     }
   }
 
-  fun isMonitoring(context: Context): Boolean =
-    configured && manager(context).monitoredRegions.isNotEmpty()
-
   fun saveConfig(context: Context, config: AttendanceConfig?) {
     val editor = prefs(context).edit()
     if (config == null) {

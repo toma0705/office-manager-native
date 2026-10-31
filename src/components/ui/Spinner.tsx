@@ -6,7 +6,8 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { type NamedSize, namedSizeMap } from "@/utils/size";
+import { colors } from "@/theme/colors";
+import { type NamedSize, namedSizeMap, normalizeSize } from "@/utils/size";
 
 type SpinnerSize = number | NamedSize;
 
@@ -18,25 +19,15 @@ type SpinnerProps = {
   testID?: string;
 };
 
-const DEFAULT_SIZE: SpinnerSize = namedSizeMap.medium;
-
+/** くるくる回る読み込み中の表示 */
 export const Spinner: React.FC<SpinnerProps> = ({
-  size = DEFAULT_SIZE,
-  color = "#7bc062",
+  size = namedSizeMap.medium,
+  color = colors.primary,
   style,
   accessibilityLabel = "読み込み中",
   testID,
 }) => {
-  const fallback =
-    typeof DEFAULT_SIZE === "number" ? DEFAULT_SIZE : namedSizeMap.medium;
-  const normalizedSize = normalizeSize(size, fallback);
-  if (typeof normalizedSize !== "number") {
-    console.error(
-      "[DEBUG Spinner] Non-numeric size detected",
-      size,
-      normalizedSize
-    );
-  }
+  const normalizedSize = normalizeSize(size);
   const rotation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -89,19 +80,3 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
-
-export const normalizeSize = (
-  size: number | NamedSize | undefined,
-  fallback: number = namedSizeMap.medium
-): number => {
-  if (typeof size === "number" && Number.isFinite(size)) {
-    return size;
-  }
-  if (typeof size === "string") {
-    const mappedSize = namedSizeMap[size as NamedSize];
-    if (typeof mappedSize === "number") {
-      return mappedSize;
-    }
-  }
-  return fallback;
-};

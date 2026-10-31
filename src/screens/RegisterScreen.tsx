@@ -13,7 +13,7 @@ import { createOfficesApi } from "@/api/client";
 import { withApiPath } from "@/constants/config";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import { colors } from "@/theme/colors";
-import { sortOfficesByPriority } from "@/utils/offices";
+import { toOfficeOptions } from "@/utils/offices";
 
 export const RegisterScreen: React.FC = () => {
   const navigation =
@@ -44,10 +44,7 @@ export const RegisterScreen: React.FC = () => {
 
   const iconPreviewUri = useMemo(() => icon?.uri, [icon]);
 
-  const sortedOffices = useMemo(
-    () => sortOfficesByPriority(offices),
-    [offices]
-  );
+  const officeOptions = useMemo(() => toOfficeOptions(offices), [offices]);
 
   const handlePickIcon = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -166,10 +163,7 @@ export const RegisterScreen: React.FC = () => {
           <OptionCardGroup
             title="所属オフィス"
             helperText="所属するオフィスを選択してください"
-            options={sortedOffices.map(office => ({
-              value: office.code,
-              label: office.name ?? office.code,
-            }))}
+            options={officeOptions}
             selectedValue={selectedOffice}
             onSelect={setSelectedOffice}
           />

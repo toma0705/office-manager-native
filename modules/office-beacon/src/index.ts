@@ -27,7 +27,6 @@ type NativeOfficeBeacon = {
   ): Promise<boolean>;
   stopMonitoringAsync(): Promise<void>;
   refreshStateAsync(): Promise<void>;
-  isMonitoringAsync(): Promise<boolean>;
   /** Android のみ。検知後の入退室 API 呼び出しはネイティブ側で行う */
   setAttendanceConfigAsync?(config: AttendanceConfig | null): Promise<void>;
   addListener(
@@ -73,9 +72,6 @@ export const stopMonitoring = async () => {
 export const refreshState = async () => {
   await native?.refreshStateAsync();
 };
-
-export const isMonitoring = async () =>
-  (await native?.isMonitoringAsync()) ?? false;
 
 export const addRegionStateListener = (
   listener: (event: BeaconRegionEvent) => void

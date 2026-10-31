@@ -1,4 +1,4 @@
-const { withGradleProperties } = require("@expo/config-plugins");
+const { withGradleProperties } = require("expo/config-plugins");
 
 // テンプレートの既定値（-Xmx2048m -XX:MaxMetaspaceSize=512m）では
 // リリースビルド中に Metaspace が足りず Gradle のデーモンが落ちる

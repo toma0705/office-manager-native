@@ -7,8 +7,7 @@ type Props = {
   uri?: string | null;
   alt?: string;
   size?: number;
-  rounded?: boolean;
-  style?: StyleProp<ImageStyle>;
+  /** 余白など（画像のときも、頭文字のときも付ける） */
   containerStyle?: StyleProp<ViewStyle>;
 };
 
@@ -23,23 +22,15 @@ export const Avatar: React.FC<Props> = ({
   uri,
   alt,
   size = 64,
-  rounded = true,
-  style,
   containerStyle,
 }) => {
   const [isError, setIsError] = useState(false);
   const initials = useMemo(() => getInitial(alt), [alt]);
-  const borderRadius = rounded ? size / 2 : 12;
+  const shape = { width: size, height: size, borderRadius: size / 2 };
 
   if (!uri || isError) {
     return (
-      <View
-        style={[
-          styles.placeholder,
-          containerStyle,
-          { width: size, height: size, borderRadius },
-        ]}
-      >
+      <View style={[styles.placeholder, containerStyle, shape]}>
         <Text style={styles.initial}>{initials}</Text>
       </View>
     );
@@ -48,7 +39,7 @@ export const Avatar: React.FC<Props> = ({
   return (
     <Image
       source={{ uri }}
-      style={[styles.image, { width: size, height: size, borderRadius }, style]}
+      style={[styles.image, containerStyle as StyleProp<ImageStyle>, shape]}
       onError={() => setIsError(true)}
       resizeMode="cover"
     />

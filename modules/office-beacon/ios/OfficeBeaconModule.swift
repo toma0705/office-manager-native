@@ -60,10 +60,6 @@ final class BeaconDelegate: NSObject, CLLocationManagerDelegate {
     }
   }
 
-  func isMonitoring() -> Bool {
-    return !manager.monitoredRegions.isEmpty
-  }
-
   func locationManager(
     _ manager: CLLocationManager, didDetermineState state: CLRegionState,
     for region: CLRegion
@@ -126,10 +122,6 @@ public class OfficeBeaconModule: Module {
 
     AsyncFunction("refreshStateAsync") { () -> Void in
       self.delegate?.refresh()
-    }.runOnQueue(.main)
-
-    AsyncFunction("isMonitoringAsync") { () -> Bool in
-      return self.delegate?.isMonitoring() ?? false
     }.runOnQueue(.main)
   }
 }

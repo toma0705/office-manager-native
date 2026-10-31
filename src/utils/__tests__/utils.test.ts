@@ -1,5 +1,5 @@
 import { formatDateTime } from "../date";
-import { sortOfficesByPriority } from "../offices";
+import { sortOfficesByPriority, toOfficeOptions } from "../offices";
 import { normalizeSize } from "../size";
 
 describe("formatDateTime", () => {
@@ -29,6 +29,20 @@ describe("sortOfficesByPriority", () => {
     ]);
     // 元の配列は並べ替えない
     expect(offices[0].code).toBe("OSAKA");
+  });
+});
+
+describe("toOfficeOptions", () => {
+  it("選択肢にする（名前がなければコードを出す）", () => {
+    expect(
+      toOfficeOptions([
+        { id: 1, code: "OKAYAMA", name: "岡山オフィス" },
+        { id: 9, code: "NEW", name: "" },
+      ])
+    ).toEqual([
+      { value: "OKAYAMA", label: "岡山オフィス" },
+      { value: "NEW", label: "NEW" },
+    ]);
   });
 });
 

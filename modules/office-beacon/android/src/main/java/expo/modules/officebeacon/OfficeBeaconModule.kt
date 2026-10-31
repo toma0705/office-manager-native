@@ -56,10 +56,6 @@ class OfficeBeaconModule : Module() {
       BeaconController.refresh(context)
     }.runOnQueue(Queues.MAIN)
 
-    AsyncFunction("isMonitoringAsync") {
-      BeaconController.isMonitoring(context)
-    }.runOnQueue(Queues.MAIN)
-
     AsyncFunction("setAttendanceConfigAsync") { config: AttendanceConfigRecord? ->
       BeaconController.saveConfig(
         context,

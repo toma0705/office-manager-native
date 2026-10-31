@@ -11,7 +11,7 @@ import { colors } from "@/theme/colors";
 import { Spinner } from "./Spinner";
 import { namedSizeMap } from "@/utils/size";
 
-type Variant = "primary" | "secondary" | "danger" | "ghost";
+type Variant = "primary" | "secondary" | "danger";
 
 type ButtonProps = {
   title: string;
@@ -53,15 +53,6 @@ const variantStyles: Record<
     },
     text: {
       color: colors.white,
-    },
-  },
-  ghost: {
-    container: {
-      backgroundColor: "transparent",
-      borderColor: "transparent",
-    },
-    text: {
-      color: colors.mutedText,
     },
   },
 };

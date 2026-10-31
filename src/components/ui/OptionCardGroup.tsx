@@ -1,12 +1,10 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { StyleProp, ViewStyle } from "react-native";
 import { colors } from "@/theme/colors";
 
 type Option = {
   value: string;
   label: string;
-  description?: string;
   span?: "full" | "half";
 };
 
@@ -16,8 +14,6 @@ type OptionCardGroupProps = {
   options: Option[];
   selectedValue: string;
   onSelect: (value: string) => void;
-  containerStyle?: StyleProp<ViewStyle>;
-  allowClear?: boolean;
 };
 
 export const OptionCardGroup: React.FC<OptionCardGroupProps> = ({
@@ -26,19 +22,9 @@ export const OptionCardGroup: React.FC<OptionCardGroupProps> = ({
   options,
   selectedValue,
   onSelect,
-  containerStyle,
-  allowClear = false,
 }) => {
-  const handlePress = (value: string) => {
-    if (allowClear && selectedValue === value) {
-      onSelect("");
-      return;
-    }
-    onSelect(value);
-  };
-
   return (
-    <View style={[styles.wrapper, containerStyle]}>
+    <View style={styles.wrapper}>
       {title ? <Text style={styles.title}>{title}</Text> : null}
       {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
       <View style={styles.grid}>
@@ -49,7 +35,7 @@ export const OptionCardGroup: React.FC<OptionCardGroupProps> = ({
           return (
             <Pressable
               key={option.value}
-              onPress={() => handlePress(option.value)}
+              onPress={() => onSelect(option.value)}
               style={({ pressed }) => [
                 styles.card,
                 spanStyle,
@@ -63,17 +49,6 @@ export const OptionCardGroup: React.FC<OptionCardGroupProps> = ({
               >
                 {option.label}
               </Text>
-              {option.description ? (
-                <Text
-                  style={[
-                    styles.description,
-                    isSelected && styles.descriptionSelected,
-                  ]}
-                  numberOfLines={2}
-                >
-                  {option.description}
-                </Text>
-              ) : null}
             </Pressable>
           );
         })}
@@ -142,13 +117,6 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   labelSelected: {
-    color: colors.primaryDark,
-  },
-  description: {
-    fontSize: 12,
-    color: colors.mutedText,
-  },
-  descriptionSelected: {
     color: colors.primaryDark,
   },
 });

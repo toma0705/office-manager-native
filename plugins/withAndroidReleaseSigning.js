@@ -1,4 +1,4 @@
-const { withAppBuildGradle } = require("@expo/config-plugins");
+const { withAppBuildGradle } = require("expo/config-plugins");
 
 // Google Play へのアップロード用の署名設定。
 // 鍵ファイルとパスワードはリポジトリに置かず、~/.gradle/gradle.properties の
