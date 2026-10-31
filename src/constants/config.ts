@@ -70,7 +70,7 @@ export const withApiPath = (path: string) =>
 
 /**
  * 実機確認用のテストモード（app.config.js の OFFICE_MANAGER_TEST_MODE）。
- * 入退室を Discord に通知せず、端末の通知で検知と記録の結果を知らせる。
+ * 検知と記録の結果を端末の通知で知らせる。入退室の確定はサーバーが行うので、Discord にも通知される。
  */
 export const TEST_MODE =
   (Constants?.expoConfig?.extra as { testMode?: boolean } | undefined)

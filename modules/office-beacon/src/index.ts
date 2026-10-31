@@ -9,7 +9,7 @@ export type AttendanceConfig = {
   userId: number;
   userName: string;
   officeCode: string;
-  /** 実機確認用。Discord に通知せず、端末の通知で検知と記録の結果を知らせる */
+  /** 実機確認用。検知と記録の結果を端末の通知で知らせる */
   testMode: boolean;
 };
 
@@ -38,7 +38,7 @@ type NativeOfficeBeacon = {
   ): { remove(): void };
   addListener(
     eventName: "onAttendanceChanged",
-    listener: (event: { action: "enter" | "exit" }) => void
+    listener: (event: { action: "arrive" }) => void
   ): { remove(): void };
 };
 
@@ -87,9 +87,9 @@ export const setAttendanceConfig = async (config: AttendanceConfig | null) => {
   await native?.setAttendanceConfigAsync?.(config);
 };
 
-/** Android のみ。ネイティブ側で入退室を記録したときに呼ばれる */
+/** Android のみ。ネイティブ側で入室を保留にしたときに呼ばれる */
 export const addAttendanceChangedListener = (
-  listener: (action: "enter" | "exit") => void
+  listener: (action: "arrive") => void
 ) =>
   native?.addListener("onAttendanceChanged", event =>
     listener(event.action)

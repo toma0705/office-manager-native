@@ -24,7 +24,7 @@ data class AttendanceConfig(
   val userId: Int,
   val userName: String,
   val officeCode: String,
-  /** 実機確認用。Discord に通知せず、端末の通知で検知と記録の結果を知らせる */
+  /** 実機確認用。検知と記録の結果を端末の通知で知らせる */
   val testMode: Boolean,
 )
 
