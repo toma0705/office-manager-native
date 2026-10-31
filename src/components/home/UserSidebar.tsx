@@ -1,18 +1,11 @@
 import React from "react";
 import type { UserSafe } from "@office-manager/api-client";
-import {
-  Modal,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableWithoutFeedback,
-  View,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Avatar } from "@/components/ui/Avatar";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
+import { PlatformIcon } from "@/components/ui/PlatformIcon";
 import { colors } from "@/theme/colors";
-import { SymbolView } from "expo-symbols";
-import { Feather } from "@expo/vector-icons";
 
 type Props = {
   visible: boolean;
@@ -22,6 +15,7 @@ type Props = {
   onDelete: () => void;
 };
 
+/** ホーム画面で自分のアイコンを押すと出るメニュー（ログアウト・アカウント削除） */
 export const UserSidebar: React.FC<Props> = ({
   visible,
   user,
@@ -31,88 +25,46 @@ export const UserSidebar: React.FC<Props> = ({
 }) => {
   if (!user) return null;
 
-  type SymbolName = React.ComponentProps<typeof SymbolView>["name"];
-
-  const renderIcon = (
-    iosName: SymbolName,
-    fallbackName: React.ComponentProps<typeof Feather>["name"],
-    color: string
-  ) => {
-    if (Platform.OS === "ios") {
-      return (
-        <SymbolView
-          name={iosName}
-          tintColor={color}
-          style={styles.actionSymbol}
-          weight="regular"
-        />
-      );
-    }
-    return <Feather name={fallbackName} size={20} color={color} />;
-  };
-
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.backdrop}>
-          <TouchableWithoutFeedback>
-            <View style={styles.panel}>
-              <View style={styles.header}>
-                <Avatar uri={user.iconFileName} alt={user.name} size={72} />
-                <View style={styles.headerText}>
-                  <Text style={styles.name}>{user.name}</Text>
-                  <Text style={styles.office}>{user.office.name}</Text>
-                </View>
-              </View>
-              <Button
-                title="ログアウト"
-                variant="secondary"
-                onPress={onLogout}
-                leftIcon={renderIcon(
-                  "rectangle.portrait.and.arrow.right",
-                  "log-out",
-                  colors.primaryDark
-                )}
-                fullWidth
-              />
-              <Button
-                title="アカウント削除"
-                variant="danger"
-                onPress={onDelete}
-                leftIcon={renderIcon("trash.fill", "trash-2", colors.white)}
-                fullWidth
-              />
-            </View>
-          </TouchableWithoutFeedback>
+    <BottomSheet visible={visible} onClose={onClose}>
+      <View style={styles.header}>
+        <Avatar uri={user.iconFileName} alt={user.name} size={72} />
+        <View style={styles.headerText}>
+          <Text style={styles.name}>{user.name}</Text>
+          <Text style={styles.office}>{user.office.name}</Text>
         </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+      </View>
+      <Button
+        title="ログアウト"
+        variant="secondary"
+        onPress={onLogout}
+        leftIcon={
+          <PlatformIcon
+            ios="rectangle.portrait.and.arrow.right"
+            android="log-out"
+            color={colors.primaryDark}
+          />
+        }
+        fullWidth
+      />
+      <Button
+        title="アカウント削除"
+        variant="danger"
+        onPress={onDelete}
+        leftIcon={
+          <PlatformIcon
+            ios="trash.fill"
+            android="trash-2"
+            color={colors.white}
+          />
+        }
+        fullWidth
+      />
+    </BottomSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    justifyContent: "flex-end",
-  },
-  panel: {
-    backgroundColor: colors.white,
-    padding: 24,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    gap: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: -4 },
-    shadowRadius: 12,
-    elevation: 5,
-  },
   header: {
     flexDirection: "row",
     gap: 16,
@@ -130,9 +82,5 @@ const styles = StyleSheet.create({
   office: {
     fontSize: 14,
     color: colors.mutedText,
-  },
-  actionSymbol: {
-    width: 20,
-    height: 20,
   },
 });

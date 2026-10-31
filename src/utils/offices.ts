@@ -42,3 +42,10 @@ export const sortOfficesByPriority = (
     return 0;
   });
 };
+
+/** オフィスを、選択肢（OptionCardGroup）の形にする。東京・岡山を先に並べる */
+export const toOfficeOptions = (offices: Office[]) =>
+  sortOfficesByPriority(offices).map(office => ({
+    value: office.code,
+    label: office.name || office.code,
+  }));

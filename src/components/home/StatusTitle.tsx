@@ -44,9 +44,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fdeaea",
     borderColor: colors.danger,
   },
-  icon: {
-    fontSize: 28,
-  },
   title: {
     fontSize: 28,
     fontWeight: "800",

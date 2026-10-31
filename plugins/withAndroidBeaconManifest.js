@@ -1,4 +1,4 @@
-const { AndroidConfig, withAndroidManifest } = require("@expo/config-plugins");
+const { AndroidConfig, withAndroidManifest } = require("expo/config-plugins");
 
 // AltBeacon はフォアグラウンドサービス（種類: location）を宣言しているが、
 // このアプリは常駐通知なしの IntentScanStrategy で検知するため使わない。

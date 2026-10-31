@@ -14,7 +14,10 @@ export const ResetPasswordRequestScreen: React.FC = () => {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  // 結果のメッセージ。成功か失敗かで色を変える
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
 
   const handleSubmit = async () => {
     if (loading) return;
@@ -24,18 +27,19 @@ export const ResetPasswordRequestScreen: React.FC = () => {
     }
 
     setLoading(true);
-    setMessage("");
+    setResult(null);
     try {
       const api = createUsersApi();
       await api.usersResetPasswordRequestPost({
         usersResetPasswordRequestPostRequest: { email: email.trim() },
       });
-      setMessage(
-        "パスワード再設定用のメールを送信しました。メールをご確認ください。"
-      );
+      setResult({
+        ok: true,
+        text: "パスワード再設定用のメールを送信しました。メールをご確認ください。",
+      });
     } catch (error) {
       console.error("failed to request reset password", error);
-      setMessage("送信に失敗しました");
+      setResult({ ok: false, text: "送信に失敗しました" });
     } finally {
       setLoading(false);
     }
@@ -66,16 +70,14 @@ export const ResetPasswordRequestScreen: React.FC = () => {
         onPress={handleGoLogin}
         fullWidth
       />
-      {message ? (
+      {result ? (
         <Text
           style={[
             styles.message,
-            message.includes("送信")
-              ? styles.messageSuccess
-              : styles.messageError,
+            result.ok ? styles.messageSuccess : styles.messageError,
           ]}
         >
-          {message}
+          {result.text}
         </Text>
       ) : null}
     </PageContainer>

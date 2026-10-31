@@ -2,8 +2,6 @@ import {
   type UsersLoginPostRequest,
   type UserSafe,
 } from "@office-manager/api-client";
-import Constants from "expo-constants";
-import * as LocalAuthentication from "expo-local-authentication";
 import React, {
   createContext,
   useCallback,
@@ -17,6 +15,10 @@ import {
   stopBackgroundAttendanceMonitoring,
   syncBackgroundAttendanceSnapshot,
 } from "@/services/backgroundBeacon";
+import {
+  authenticateWithBiometrics,
+  canUseBiometrics,
+} from "@/services/biometrics";
 import { credentialStorage } from "@/storage/credentialStorage";
 import { tokenStorage } from "@/storage/tokenStorage";
 
@@ -28,7 +30,7 @@ type AuthContextValue = {
   token: string | null;
   signIn: (credentials: UsersLoginPostRequest) => Promise<void>;
   signOut: (options?: { forgetCredentials?: boolean }) => Promise<void>;
-  refreshUser: () => Promise<void>;
+  /** 画面で取り直したユーザー情報を反映する */
   setUserState: (user: UserSafe | null) => void;
 };
 
@@ -40,8 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [status, setStatus] = useState<AuthStatus>("checking");
   const [user, setUser] = useState<UserSafe | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const shouldRequireBiometric = Constants.appOwnership !== "expo";
 
+  /** アプリを開いたとき、保存しているログインを使う（Face ID などで本人か確かめてから） */
   const loadSession = useCallback(async () => {
     setStatus("checking");
     const stored = await tokenStorage.get();
@@ -53,36 +55,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
     try {
-      let biometricApproved = true;
-
-      if (shouldRequireBiometric) {
-        const hasHardware = await LocalAuthentication.hasHardwareAsync();
-        if (!hasHardware) {
-          biometricApproved = false;
-        }
-        const enrolled = await LocalAuthentication.isEnrolledAsync();
-        if (!enrolled) {
-          biometricApproved = false;
-        } else if (biometricApproved) {
-          const result = await LocalAuthentication.authenticateAsync({
-            promptMessage: "Face IDでロック解除",
-            cancelLabel: "キャンセル",
-            fallbackLabel: "パスコードを入力",
-            disableDeviceFallback: false,
-          });
-          const warningMessage = (result as { warning?: unknown }).warning;
-          if (
-            typeof warningMessage === "string" &&
-            warningMessage.includes("NSFaceIDUsageDescription")
-          ) {
-            biometricApproved = false;
-          } else {
-            biometricApproved = result.success;
-          }
-        }
-      }
-
-      if (!biometricApproved) {
+      // 生体認証を使えない・失敗・キャンセルなら、保存しているログインを消してログイン画面に戻す
+      if (
+        canUseBiometrics &&
+        !(await authenticateWithBiometrics("Face IDでロック解除")).ok
+      ) {
         await Promise.all([tokenStorage.remove(), credentialStorage.remove()]);
         setToken(null);
         setUser(null);
@@ -151,20 +128,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     []
   );
 
-  const refreshUser = useCallback(async () => {
-    if (!token) return;
-    try {
-      const api = createUsersApi(token);
-      const profile = await api.usersMeGet();
-      await syncBackgroundAttendanceSnapshot(token, profile.user);
-      setUser(profile.user);
-      setStatus("signedIn");
-    } catch (error) {
-      console.warn("Failed to refresh user", error);
-      await signOut();
-    }
-  }, [signOut, token]);
-
   const setUserState = useCallback(
     (next: UserSafe | null) => {
       if (token && next) {
@@ -177,16 +140,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, token, signIn, signOut, refreshUser, setUserState }),
-    [refreshUser, signIn, signOut, status, token, user, setUserState]
+    () => ({ status, user, token, signIn, signOut, setUserState }),
+    [signIn, signOut, status, token, user, setUserState]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuthContext = () => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context)
-    throw new Error("useAuthContext must be used within AuthProvider");
+  if (!context) throw new Error("useAuth は AuthProvider の中で使ってください");
   return context;
 };

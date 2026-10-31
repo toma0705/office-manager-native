@@ -22,7 +22,8 @@ import { EnteredUsersList } from "@/components/home/EnteredUsersList";
 import { UserSidebar } from "@/components/home/UserSidebar";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { useAuth } from "@/hooks/useAuth";
+import { PlatformIcon } from "@/components/ui/PlatformIcon";
+import { useAuth } from "@/context/AuthContext";
 import { createUsersApi } from "@/api/client";
 import { TEST_MODE } from "@/constants/config";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
@@ -32,8 +33,6 @@ import {
 } from "@/services/backgroundBeacon";
 import { monitoringMessage } from "@/services/beacon/monitoringMessage";
 import { colors } from "@/theme/colors";
-import { SymbolView } from "expo-symbols";
-import { Feather } from "@expo/vector-icons";
 import { getOfficeBeacon } from "@/constants/beacon";
 
 export const HomeScreen: React.FC = () => {
@@ -131,26 +130,6 @@ export const HomeScreen: React.FC = () => {
   }, [signOut, token, user]);
 
   const enteredCount = useMemo(() => enteredUsers.length, [enteredUsers]);
-  type SymbolName = React.ComponentProps<typeof SymbolView>["name"];
-
-  const renderSymbol = (
-    iosName: SymbolName,
-    fallbackName: React.ComponentProps<typeof Feather>["name"],
-    color: string
-  ) => {
-    if (Platform.OS === "ios") {
-      return (
-        <SymbolView
-          name={iosName}
-          tintColor={color}
-          style={styles.actionSymbol}
-          weight="regular"
-        />
-      );
-    }
-    return <Feather name={fallbackName} size={20} color={color} />;
-  };
-
   if (!user) {
     return (
       <View style={styles.centered}>
@@ -166,7 +145,13 @@ export const HomeScreen: React.FC = () => {
           title="すべてのユーザーを見る"
           variant="secondary"
           onPress={() => navigation.navigate("Users")}
-          leftIcon={renderSymbol("person.2.fill", "users", colors.primaryDark)}
+          leftIcon={
+            <PlatformIcon
+              ios="person.2.fill"
+              android="users"
+              color={colors.primaryDark}
+            />
+          }
         />
         <TouchableOpacity onPress={() => setSidebarOpen(true)}>
           <Avatar uri={user.iconFileName} alt={user.name} size={72} />
@@ -229,10 +214,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 24,
   },
-  actionSymbol: {
-    width: 20,
-    height: 20,
-  },
   locationStatus: {
     marginTop: -8,
     textAlign: "center",
@@ -246,19 +227,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: "600",
     color: colors.danger,
-  },
-  locationMeta: {
-    marginTop: -16,
-    textAlign: "center",
-    fontSize: 12,
-    color: colors.mutedText,
-  },
-  backgroundMonitoringStatus: {
-    marginTop: -18,
-    textAlign: "center",
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.mutedText,
   },
   sectionHeader: {
     alignSelf: "center",

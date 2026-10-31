@@ -7,10 +7,10 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { OptionCardGroup } from "@/components/ui/OptionCardGroup";
 import { createOfficesApi, createUsersApi } from "@/api/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/context/AuthContext";
 import { colors } from "@/theme/colors";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
-import { sortOfficesByPriority } from "@/utils/offices";
+import { toOfficeOptions } from "@/utils/offices";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export const UsersScreen: React.FC = () => {
@@ -46,17 +46,13 @@ export const UsersScreen: React.FC = () => {
     return users.filter(user => user.office?.code === selectedOffice);
   }, [selectedOffice, users]);
 
-  const officeFilterOptions = useMemo(() => {
-    const sortedOffices = sortOfficesByPriority(offices);
-
-    return [
+  const officeFilterOptions = useMemo(
+    () => [
       { value: "ALL", label: "全ユーザー", span: "full" as const },
-      ...sortedOffices.map(office => ({
-        value: office.code,
-        label: office.name ?? office.code,
-      })),
-    ];
-  }, [offices]);
+      ...toOfficeOptions(offices),
+    ],
+    [offices]
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>

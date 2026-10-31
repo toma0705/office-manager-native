@@ -15,7 +15,6 @@ import { formatDateTime } from "@/utils/date";
 type Props = {
   users: EnteredUser[];
   header?: React.ReactElement | null;
-  footer?: React.ReactElement | null;
   contentContainerStyle?: StyleProp<ViewStyle>;
 };
 
@@ -36,7 +35,6 @@ const EnteredUserItem: React.FC<{ user: EnteredUser }> = ({ user }) => (
 export const EnteredUsersList: React.FC<Props> = ({
   users,
   header,
-  footer,
   contentContainerStyle,
 }) => {
   const sortedUsers = useMemo(() => {
@@ -53,7 +51,6 @@ export const EnteredUsersList: React.FC<Props> = ({
       keyExtractor={item => item.id.toString()}
       renderItem={({ item }) => <EnteredUserItem user={item} />}
       ListHeaderComponent={header ?? undefined}
-      ListFooterComponent={footer ?? undefined}
       contentContainerStyle={[styles.listContent, contentContainerStyle]}
       ListEmptyComponent={
         <Text style={styles.emptyText}>現在入室中のユーザーはいません</Text>
