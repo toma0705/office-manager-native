@@ -109,9 +109,11 @@ describe("applyBeaconState", () => {
 
     await applyBeaconState("inside");
     expect(postedPaths()).toEqual(["/users/7/arrive"]);
-    expect(fetchMock.mock.calls[0][1].headers).toEqual({
-      Authorization: "Bearer token",
-    });
+    // /users/me にも /arrive にもトークンを付ける
+    expect(fetchMock.mock.calls.map(authorizationOf)).toEqual([
+      "Bearer token",
+      "Bearer token",
+    ]);
 
     jest.advanceTimersByTime(ENTER_CONFIRM_REFRESH_MS);
     expect(listener).toHaveBeenCalledTimes(1);
