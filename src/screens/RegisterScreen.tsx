@@ -1,16 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Linking, // 追加
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, Linking, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
@@ -177,7 +166,7 @@ export const RegisterScreen: React.FC = () => {
           <OptionCardGroup
             title="所属オフィス"
             helperText="所属するオフィスを選択してください"
-            options={sortedOffices.map((office) => ({
+            options={sortedOffices.map(office => ({
               value: office.code,
               label: office.name ?? office.code,
             }))}

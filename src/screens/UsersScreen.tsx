@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { FlatList, Platform, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { Office, UserListItem } from "@office-manager/api-client";
@@ -27,7 +27,10 @@ export const UsersScreen: React.FC = () => {
       const [usersApi, officesApi] = [createUsersApi(), createOfficesApi()];
       const [userList, officeList] = await Promise.all([
         // ユーザー一覧はログイン必須。生成クライアントは認証ヘッダーを付けないため直接渡す
-        usersApi.usersGet({}, { headers: { Authorization: `Bearer ${token}` } }),
+        usersApi.usersGet(
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        ),
         officesApi.officesGet(),
       ]);
       setUsers(userList);
@@ -45,7 +48,7 @@ export const UsersScreen: React.FC = () => {
 
   const filteredUsers = useMemo(() => {
     if (selectedOffice === "ALL") return users;
-    return users.filter((user) => user.office?.code === selectedOffice);
+    return users.filter(user => user.office?.code === selectedOffice);
   }, [selectedOffice, users]);
 
   const officeFilterOptions = useMemo(() => {
@@ -53,7 +56,7 @@ export const UsersScreen: React.FC = () => {
 
     return [
       { value: "ALL", label: "全ユーザー", span: "full" as const },
-      ...sortedOffices.map((office) => ({
+      ...sortedOffices.map(office => ({
         value: office.code,
         label: office.name ?? office.code,
       })),
@@ -84,7 +87,7 @@ export const UsersScreen: React.FC = () => {
 
         <FlatList
           data={filteredUsers}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <Text style={styles.emptyText}>

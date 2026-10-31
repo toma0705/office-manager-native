@@ -35,12 +35,15 @@ const postAttendance = async (
   snapshot: BackgroundAttendanceSnapshot,
   path: "arrive" | "leave"
 ) => {
-  const response = await fetch(withApiPath(`/users/${snapshot.userId}/${path}`), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${snapshot.token}`,
-    },
-  });
+  const response = await fetch(
+    withApiPath(`/users/${snapshot.userId}/${path}`),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${snapshot.token}`,
+      },
+    }
+  );
 
   if (!response.ok) {
     const text = await response.text();
@@ -225,7 +228,8 @@ export const syncBackgroundAttendanceSnapshot = async (
   token: string | null,
   user: UserSafe | null
 ) => {
-  const snapshot = token && user ? createBackgroundAttendanceSnapshot(token, user) : null;
+  const snapshot =
+    token && user ? createBackgroundAttendanceSnapshot(token, user) : null;
   if (!snapshot) {
     await stopBackgroundAttendanceMonitoring();
     return;
@@ -243,7 +247,8 @@ export const ensureBackgroundAttendanceMonitoring = async (
   user: UserSafe
 ) => {
   const snapshot = createBackgroundAttendanceSnapshot(token, user);
-  if (!snapshot) return { started: false, reason: "unsupported-office" as const };
+  if (!snapshot)
+    return { started: false, reason: "unsupported-office" as const };
 
   if (!isBeaconSupported) {
     return { started: false, reason: "beacon-unavailable" as const };
@@ -287,7 +292,8 @@ export const ensureBackgroundAttendanceMonitoring = async (
     ...snapshot.beacon,
     identifier: BEACON_REGION_ID,
   });
-  if (!started) return { started: false, reason: "beacon-unavailable" as const };
+  if (!started)
+    return { started: false, reason: "beacon-unavailable" as const };
 
   return { started: true as const };
 };

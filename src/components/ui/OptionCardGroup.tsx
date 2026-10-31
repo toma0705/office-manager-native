@@ -42,7 +42,7 @@ export const OptionCardGroup: React.FC<OptionCardGroupProps> = ({
       {title ? <Text style={styles.title}>{title}</Text> : null}
       {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
       <View style={styles.grid}>
-        {options.map((option) => {
+        {options.map(option => {
           const isSelected = option.value === selectedValue;
           const spanStyle =
             option.span === "full" ? styles.cardFull : styles.cardHalf;

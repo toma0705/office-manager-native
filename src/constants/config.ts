@@ -13,8 +13,7 @@ const resolveEnvBaseUrl = () => {
   if (fromProcess) return fromProcess;
 
   const extra = Constants?.expoConfig?.extra as
-    | { apiBaseUrl?: string }
-    | undefined;
+    { apiBaseUrl?: string } | undefined;
   if (extra?.apiBaseUrl) return normalize(extra.apiBaseUrl);
 
   const legacy = (Constants?.manifest2 as any)?.extra?.apiBaseUrl;
@@ -32,9 +31,8 @@ const resolveExpoHostBaseUrl = () => {
   }
 
   const expoGoDebuggerHost = extractHost(
-    (
-      Constants?.expoGoConfig as { debuggerHost?: string } | null | undefined
-    )?.debuggerHost
+    (Constants?.expoGoConfig as { debuggerHost?: string } | null | undefined)
+      ?.debuggerHost
   );
   if (expoGoDebuggerHost) {
     return `http://${expoGoDebuggerHost}:3000/api`;
@@ -43,9 +41,7 @@ const resolveExpoHostBaseUrl = () => {
   const legacyHost = extractHost(
     (
       Constants?.manifest2 as
-        | { extra?: { expoClient?: { hostUri?: string } } }
-        | null
-        | undefined
+        { extra?: { expoClient?: { hostUri?: string } } } | null | undefined
     )?.extra?.expoClient?.hostUri
   );
   if (legacyHost) {

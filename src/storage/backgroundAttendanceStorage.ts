@@ -19,13 +19,13 @@ const isSnapshot = (
 ): value is BackgroundAttendanceSnapshot =>
   Boolean(
     value &&
-      typeof value.token === "string" &&
-      typeof value.userId === "number" &&
-      typeof value.userName === "string" &&
-      typeof value.officeCode === "string" &&
-      typeof value.officeName === "string" &&
-      typeof value.entered === "boolean" &&
-      typeof value.beacon?.uuid === "string"
+    typeof value.token === "string" &&
+    typeof value.userId === "number" &&
+    typeof value.userName === "string" &&
+    typeof value.officeCode === "string" &&
+    typeof value.officeName === "string" &&
+    typeof value.entered === "boolean" &&
+    typeof value.beacon?.uuid === "string"
   );
 
 export const createBackgroundAttendanceSnapshot = (
